@@ -157,7 +157,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
     for step in pbar:
         timer.tick("total")
         # Check if there is a file in the checkpont path
-        if step % config.checkpoint_period == 0:
+        if step % config.eval_period == 0:
             latest_step = get_latest_checkpoint_step(FLAGS.checkpoint_path)
             if latest_step is not None and latest_step > prev_latest_step:
                 print(f"evaluating at step {step}...")

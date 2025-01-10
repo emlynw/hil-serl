@@ -1,6 +1,9 @@
 __pycache__/
 *.pyc
+*.mp4
 *.egg-info/
 buffer/
 demo_buffer/
+**/checkpoint*/
 eval_videos/
+wandb/

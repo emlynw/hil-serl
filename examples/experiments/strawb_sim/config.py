@@ -22,7 +22,7 @@ class TrainConfig(DefaultTrainingConfig):
     classifier_keys = ["wrist1", "wrist2"]
     proprio_keys = ["panda/tcp_pos", "panda/tcp_orientation", "panda/gripper_pos", "panda/gripper_vec"]
     buffer_period = 1000
-    checkpoint_period = 20_000
+    checkpoint_period = 10_000
     steps_per_update = 50
     encoder_type = "resnet-pretrained"
     setup_mode = "single-arm-fixed-gripper"
