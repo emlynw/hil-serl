@@ -14,13 +14,13 @@ from serl_launcher.wrappers.chunking import ChunkingWrapper
 from serl_launcher.networks.reward_classifier import load_classifier_func
 
 from experiments.config import DefaultTrainingConfig
-from experiments.strawb_sim.wrappers import Quat2EulerWrapper, ActionState, VideoRecorder
+from experiments.strawb_sim.wrappers import Quat2EulerWrapper, ActionState, VideoRecorder, ExplorationMemory
 from gym_INB0104 import envs
 
 class TrainConfig(DefaultTrainingConfig):
     image_keys = ["wrist1", "wrist2"]
     classifier_keys = ["wrist1", "wrist2"]
-    proprio_keys = ["panda/tcp_pos", "panda/tcp_orientation", "panda/gripper_pos", "panda/gripper_vec"]
+    proprio_keys = ["panda/tcp_pos", "panda/tcp_orientation", "panda/gripper_pos", "panda/gripper_vec", "exploration"]
     buffer_period = 1000
     checkpoint_period = 10_000
     steps_per_update = 50
@@ -34,6 +34,7 @@ class TrainConfig(DefaultTrainingConfig):
             env = VideoRecorder(env, video_dir, crop_resolution=112, resize_resolution=224, fps=10, record_every=2)
         # if not fake_env:
         #     env = SpacemouseIntervention(env)
+        env = ExplorationMemory(env)
         env = Quat2EulerWrapper(env)
         env = SERLObsWrapper(env, proprio_keys=self.proprio_keys)
         env = ActionState(env)

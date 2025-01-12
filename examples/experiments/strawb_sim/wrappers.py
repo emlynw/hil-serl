@@ -299,3 +299,36 @@ class Quat2EulerWrapper(gym.ObservationWrapper):
         tcp_orientation = observation["state"]["panda/tcp_orientation"]
         observation["state"]["panda/tcp_orientation"] = R.from_quat(tcp_orientation).as_euler("xyz")
         return observation
+    
+class ExplorationMemory(gym.Wrapper):
+    # Add max and min xyz to the state
+    def __init__(self, env, state_key='state', ee_key='panda/tcp_pos', exploration_key='exploration'):
+        super().__init__(env)
+        self.state_key = state_key
+        self.ee_key = ee_key
+        self.exploration_key = exploration_key
+
+        # Update observation space to include the 'exploration' key
+        original_state_space = self.observation_space[state_key]
+        exploration_space = Box(low=-np.inf, high=np.inf, shape=(6,), dtype=np.float32)
+        self.observation_space = gym.spaces.Dict({
+            **self.observation_space.spaces,
+            state_key: gym.spaces.Dict({
+                **original_state_space.spaces,
+                exploration_key: exploration_space,
+            })
+        })
+
+    def reset(self, seed=None, options=None):
+        obs, info = self.env.reset()
+        self.min_xyz = obs[self.state_key][self.ee_key]
+        self.max_xyz = obs[self.state_key][self.ee_key]
+        obs[self.state_key][self.exploration_key] = np.concatenate([self.min_xyz, self.max_xyz])
+        return obs, info
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        self.min_xyz = np.minimum(self.min_xyz, obs[self.state_key][self.ee_key])
+        self.max_xyz = np.maximum(self.max_xyz, obs[self.state_key][self.ee_key])
+        obs[self.state_key][self.exploration_key] = np.concatenate([self.min_xyz, self.max_xyz])
+        return obs, reward, terminated, truncated, info
