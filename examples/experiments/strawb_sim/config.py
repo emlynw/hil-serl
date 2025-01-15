@@ -27,7 +27,7 @@ class TrainConfig(DefaultTrainingConfig):
     encoder_type = "resnet-pretrained"
     setup_mode = "single-arm-fixed-gripper"
 
-    def get_environment(self, fake_env=False, save_video=False, video_dir='', classifier=False):
+    def get_environment(self, fake_env=False, save_video=False, video_dir='', classifier=False, obs_horizon=1):
         env = gym.make("gym_INB0104/ReachIKDeltaStrawbHangingEnv", width=112, height=112, cameras=["wrist1", "wrist2"], randomize_domain=True, ee_dof=4)
         env = TimeLimit(env, max_episode_steps=100)
         if save_video:
@@ -38,7 +38,7 @@ class TrainConfig(DefaultTrainingConfig):
         env = Quat2EulerWrapper(env)
         env = SERLObsWrapper(env, proprio_keys=self.proprio_keys)
         env = ActionState(env)
-        env = ChunkingWrapper(env, obs_horizon=1, act_exec_horizon=None)
+        env = ChunkingWrapper(env, obs_horizon=obs_horizon, act_exec_horizon=None)
         if classifier:
             classifier = load_classifier_func(
                 key=jax.random.PRNGKey(0),
