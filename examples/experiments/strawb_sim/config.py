@@ -28,10 +28,10 @@ class TrainConfig(DefaultTrainingConfig):
     setup_mode = "single-arm-fixed-gripper"
 
     def get_environment(self, fake_env=False, save_video=False, video_dir='', classifier=False, obs_horizon=1):
-        env = gym.make("gym_INB0104/ReachIKDeltaStrawbHangingEnv", width=112, height=112, cameras=["wrist1", "wrist2"], randomize_domain=True, ee_dof=4)
+        env = gym.make("gym_INB0104/ReachIKDeltaStrawbHangingEnv", width=256, height=256, cameras=["wrist1", "wrist2"], randomize_domain=True, ee_dof=4)
         env = TimeLimit(env, max_episode_steps=100)
         if save_video:
-            env = VideoRecorder(env, video_dir, crop_resolution=112, resize_resolution=224, fps=10, record_every=2)
+            env = VideoRecorder(env, video_dir, crop_resolution=256, resize_resolution=224, fps=10, record_every=2)
         # if not fake_env:
         #     env = SpacemouseIntervention(env)
         env = ExplorationMemory(env)

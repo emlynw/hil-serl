@@ -184,7 +184,7 @@ def main(_):
         fake_env=False,
         save_video=FLAGS.save_video,
         classifier=False,
-        obs_horizon=3
+        obs_horizon=1
     )
     env = RecordEpisodeStatistics(env)
 
