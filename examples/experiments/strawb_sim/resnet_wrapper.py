@@ -5,6 +5,7 @@ import flax
 import flax.linen as nn
 import numpy as np
 from serl_launcher.vision.resnet_v1 import PreTrainedResNetEncoder, resnetv1_configs
+from serl_launcher.vision.data_augmentations import batched_random_crop
 from serl_launcher.utils.train_utils import load_resnet10_params
 import pickle as pkl
 import os
@@ -13,6 +14,7 @@ from tqdm import tqdm
 from typing import Dict, Iterable, Optional, Tuple
 from einops import rearrange, repeat
 import time
+import cv2
 
 class EncodingWrapper(nn.Module):
     """
@@ -60,7 +62,7 @@ class EncodingWrapper(nn.Module):
         return encoded
 
 class ResNet10Wrapper(gym.ObservationWrapper):
-    def __init__(self, env, image_keys=("wrist1", "wrist2"), pooling_method="spatial_learned_embeddings", pretrained=True):
+    def __init__(self, env, image_keys=("wrist1", "wrist2"), pooling_method="spatial_learned_embeddings", pretrained=True, seed=0):
         """
         A wrapper to encode images using a ResNet-10 model and add embeddings to observations.
 
@@ -72,6 +74,8 @@ class ResNet10Wrapper(gym.ObservationWrapper):
         """
         super().__init__(env)
         self.image_keys = image_keys
+        self.rng = jax.random.key(1)
+        print(f"rng: {self.rng}")
 
         # Instantiate the ResNet-10 encoder
         pretrained_encoder = resnetv1_configs["resnetv1-10-frozen"](
@@ -97,7 +101,7 @@ class ResNet10Wrapper(gym.ObservationWrapper):
         }
 
         # Example: Accessing `params` without unfreezing
-        encoder_params = self.encoder_def.init(jax.random.PRNGKey(0), dummy_observation)
+        encoder_params = self.encoder_def.init(self.rng, dummy_observation)
 
         # Load pretrained weights if specified
         if pretrained:
@@ -155,11 +159,12 @@ class ResNet10Wrapper(gym.ObservationWrapper):
         """
         Add ResNet-10 embeddings to the observation dictionary.
         """
-        start_time = time.time()
         
+        self.rng, subrng = jax.random.split(self.rng)
         # Create a dictionary of just the images we need to process
         image_dict = {k: observation[k] for k in self.image_keys}
-        
+        aug_images = {f"aug_{k}":batched_random_crop(observation[k], subrng, padding=4, num_batch_dims=1) for k in self.image_keys}  
+        image_dict.update(aug_images)  
         # Single device transfer for all images
         obs = jax.device_put(image_dict)
         embeddings = self._jit_encode(self.encoder_params, obs)
@@ -170,5 +175,4 @@ class ResNet10Wrapper(gym.ObservationWrapper):
         for image_key, embedding in zip(self.image_keys, embeddings_np):
             observation[f"embedding_{image_key}"] = embedding
             
-        print(f"Time taken: {time.time() - start_time}")
         return observation

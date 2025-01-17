@@ -4,6 +4,7 @@ import cv2
 from gym_INB0104 import envs
 import numpy as np
 from serl_launcher.wrappers.serl_obs_wrappers import SERLObsWrapper
+from serl_launcher.wrappers.chunking import ChunkingWrapper
 from resnet_wrapper import ResNet10Wrapper
 np.set_printoptions(suppress=True)
 
@@ -20,6 +21,7 @@ def main():
     env = gym.make("gym_INB0104/ReachIKDeltaStrawbHangingEnv", cameras=['wrist1', 'wrist2'], width=128, height=128, render_mode=render_mode, randomize_domain=True, ee_dof=4)
     env = TimeLimit(env, max_episode_steps=500)    
     env = SERLObsWrapper(env)
+    env = ChunkingWrapper(env, obs_horizon=1, act_exec_horizon=None)
     env = ResNet10Wrapper(env, image_keys=('wrist1', 'wrist2',), pooling_method='spatial_learned_embeddings')
     waitkey = 100
     resize_resolution = (480, 480)
@@ -39,12 +41,13 @@ def main():
         i=0
         
         while not (terminated or truncated):
+            print(f"image shape: {obs['wrist2'].shape}")
             i+=1
             # Display the environment
             if render_mode == "rgb_array":
-                cv2.imshow("wrist2", cv2.resize(cv2.cvtColor(obs['wrist2'], cv2.COLOR_RGB2BGR), resize_resolution))
+                cv2.imshow("wrist2", cv2.resize(cv2.cvtColor(obs['wrist2'][0], cv2.COLOR_RGB2BGR), resize_resolution))
                 # Rotate wrist1 by 180 degrees
-                wrist1 = cv2.rotate(obs['wrist1'], cv2.ROTATE_180)
+                wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
                 cv2.imshow("wrist1", cv2.resize(cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR), resize_resolution))
                 # cv2.imshow("front", cv2.resize(cv2.cvtColor(obs["front"], cv2.COLOR_RGB2BGR), resize_resolution))
             
