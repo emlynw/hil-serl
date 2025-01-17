@@ -5,7 +5,7 @@ from gym_INB0104 import envs
 import numpy as np
 from serl_launcher.wrappers.serl_obs_wrappers import SERLObsWrapper
 from serl_launcher.wrappers.chunking import ChunkingWrapper
-from resnet_wrapper import ResNet10Wrapper
+from resnet_wrapper_2 import ResNet10Wrapper
 np.set_printoptions(suppress=True)
 
 # Global variables to capture mouse movement

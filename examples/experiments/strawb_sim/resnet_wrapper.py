@@ -45,7 +45,7 @@ class EncodingWrapper(nn.Module):
         return images
 
 class ResNet10Wrapper(gym.ObservationWrapper):
-    def __init__(self, env, image_keys=["wrist1", "wrist2"], seed=0, augment=True):
+    def __init__(self, env, image_keys=["wrist1", "wrist2"], seed=0, augment=True, embedding_key="embedding"):
         """
         A wrapper to encode images using a ResNet-10 model and add embeddings to observations.
 
@@ -58,6 +58,7 @@ class ResNet10Wrapper(gym.ObservationWrapper):
         self.image_keys = image_keys
         self.rng = jax.random.key(seed)
         self.augment = augment
+        self.embedding_key = embedding_key
 
         # Instantiate the ResNet-10 encoder
         pretrained_encoder = resnetv1_configs["resnetv1-10-frozen"](
@@ -67,13 +68,11 @@ class ResNet10Wrapper(gym.ObservationWrapper):
 
         self.encoder_def = EncodingWrapper(pretrained_encoder)            
 
-
         # Initialize encoder parameters
         if augment:
-            dummy_observation = jnp.zeros((2*len(self.image_keys), 128, 128, 3))
+            dummy_observation = jnp.zeros((2*len(self.image_keys), *env.observation_space[image_keys[0]].shape[1:]))
         else:
-            dummy_observation = jnp.zeros((len(self.image_keys), 128, 128, 3))
-
+            dummy_observation = jnp.zeros((len(self.image_keys), *env.observation_space[image_keys[0]].shape[1:]))
 
         encoder_params = self.encoder_def.init(self.rng, dummy_observation)
         
@@ -83,13 +82,11 @@ class ResNet10Wrapper(gym.ObservationWrapper):
 
 
         # Extend the observation space to include embeddings
-        embedding_dim = self._jit_encode(self.encoder_params, dummy_observation)[0].shape
+        embedding_dim = self._jit_encode(self.encoder_params, dummy_observation).shape
         new_spaces = self.observation_space.spaces.copy()
-        for image_key in image_keys:
-            embedding_key = f"embedding_{image_key}"
-            new_spaces[embedding_key] = gym.spaces.Box(
-                low=-np.inf, high=np.inf, shape=(*embedding_dim,), dtype=np.float32
-            )
+        new_spaces[embedding_key] = gym.spaces.Box(
+            low=-np.inf, high=np.inf, shape=(*embedding_dim,), dtype=np.float32
+        )
         self.observation_space = gym.spaces.Dict(new_spaces)
 
     def _load_resnet10_params(self, encoder_params):
@@ -154,7 +151,6 @@ class ResNet10Wrapper(gym.ObservationWrapper):
         embeddings_np = jax.device_get(embeddings)
         print(f"embeddings_np: {embeddings_np.shape}")
         
-        for image_key, embedding in zip(self.image_keys, embeddings_np):
-            observation[f"embedding_{image_key}"] = embedding
+        observation[self.embedding_key] = embeddings_np
             
         return observation
