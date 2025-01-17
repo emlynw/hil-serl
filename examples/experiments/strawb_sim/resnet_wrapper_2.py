@@ -27,72 +27,111 @@ class EncodingWrapper(nn.Module):
     """
 
     encoder: nn.Module
+    use_proprio: bool
+    proprio_latent_dim: int = 64
+    enable_stacking: bool = False
+    image_keys: Iterable[str] = ("image",)
 
     @nn.compact
     def __call__(
         self,
-        images: jnp.ndarray,
+        observations: Dict[str, jnp.ndarray],
         train=False,
-        stop_gradient=True,
+        stop_gradient=False,
+        is_encoded=False,
     ) -> jnp.ndarray:
         # encode images with encoder
-        
-        images = self.encoder(images, train=train)
+        encoded = []
+        for image_key in self.image_keys:
+            image = observations[image_key]
+            if not is_encoded:
+                if self.enable_stacking:
+                    # Combine stacking and channels into a single dimension
+                    if len(image.shape) == 4:
+                        image = rearrange(image, "T H W C -> H W (T C)")
+                    if len(image.shape) == 5:
+                        image = rearrange(image, "B T H W C -> B H W (T C)")
 
-        if stop_gradient:
-            images = jax.lax.stop_gradient(images)
+            image = self.encoder[image_key](image, train=train, encode=not is_encoded)
 
-        return images
+            if stop_gradient:
+                image = jax.lax.stop_gradient(image)
+
+            encoded.append(image)
+
+        return encoded
 
 class ResNet10Wrapper(gym.ObservationWrapper):
-    def __init__(self, env, image_keys=["wrist1", "wrist2"], seed=0, augment=True):
+    def __init__(self, env, image_keys=("wrist1", "wrist2"), pooling_method="spatial_learned_embeddings", pretrained=True, seed=0, augment=True):
         """
         A wrapper to encode images using a ResNet-10 model and add embeddings to observations.
 
         Args:
             env: Base gym environment.
             image_keys: List of keys in the observation containing image data.
+            pooling_method: Pooling method for the ResNet-10 encoder.
             pretrained: Whether to load pretrained weights for ResNet-10.
         """
         super().__init__(env)
         self.image_keys = image_keys
-        self.rng = jax.random.key(seed)
-        self.augment = augment
+        self.rng = jax.random.key(1)
+        print(f"rng: {self.rng}")
 
         # Instantiate the ResNet-10 encoder
         pretrained_encoder = resnetv1_configs["resnetv1-10-frozen"](
             pre_pooling=True,
             name="pretrained_encoder",
         )
+        encoders = {
+            image_key: PreTrainedResNetEncoder(
+                pooling_method=pooling_method,
+                num_spatial_blocks=8,
+                bottleneck_dim=256,
+                pretrained_encoder=pretrained_encoder,
+                name=f"encoder_{image_key}",
+            )
+            for image_key in image_keys
+        }
 
-        self.encoder_def = EncodingWrapper(pretrained_encoder)            
+        if augment:
+            encoders.update({
+                f"aug_{image_key}": PreTrainedResNetEncoder(
+                    pooling_method=pooling_method,
+                    num_spatial_blocks=8,
+                    bottleneck_dim=256,
+                    pretrained_encoder=pretrained_encoder,
+                    name=f"encoder_{image_key}",
+                )
+                for image_key in image_keys
+            })
 
+        self.encoder_def = EncodingWrapper(encoders, use_proprio=False, enable_stacking=True, image_keys=image_keys)
 
         # Initialize encoder parameters
-        if augment:
-            dummy_observation = jnp.zeros((2*len(self.image_keys), 128, 128, 3))
-        else:
-            dummy_observation = jnp.zeros((len(self.image_keys), 128, 128, 3))
+        dummy_observation = {
+            image_key: jnp.zeros((128, 128, 3)) for image_key in image_keys
+        }
 
-
+        # Example: Accessing `params` without unfreezing
         encoder_params = self.encoder_def.init(self.rng, dummy_observation)
-        
-        self.encoder_params = self._load_resnet10_params(encoder_params)
+
+        # Load pretrained weights if specified
+        if pretrained:
+            self.encoder_params = self._load_resnet10_params(encoder_params, image_keys)
 
         self._jit_encode = jax.jit(lambda params, obs: self.encoder_def.apply(params, obs, train=False))
 
-
         # Extend the observation space to include embeddings
-        embedding_dim = self._jit_encode(self.encoder_params, dummy_observation)[0].shape
+        embedding_dim = 256  # Match ResNet-10 bottleneck_dim
         new_spaces = self.observation_space.spaces.copy()
         for image_key in image_keys:
             embedding_key = f"embedding_{image_key}"
             new_spaces[embedding_key] = gym.spaces.Box(
-                low=-np.inf, high=np.inf, shape=(*embedding_dim,), dtype=np.float32
+                low=-np.inf, high=np.inf, shape=(embedding_dim,), dtype=np.float32
             )
         self.observation_space = gym.spaces.Dict(new_spaces)
 
-    def _load_resnet10_params(self, encoder_params):
+    def _load_resnet10_params(self, encoder_params, image_keys):
         """
         Load pretrained ResNet-10 parameters into the encoder.
         """
@@ -117,19 +156,14 @@ class ResNet10Wrapper(gym.ObservationWrapper):
         with open(file_path, "rb") as f:
             pretrained_params = pkl.load(f)
 
-        del pretrained_params['output_head']
-        param_count = sum(x.size for x in jax.tree_leaves(pretrained_params))
-        print(
-            f"Loaded {param_count/1e6}M parameters from ResNet-10 pretrained on ImageNet-1K"
-        )
-
-        new_encoder_params = encoder_params['params'][f"encoder"]
-        if "pretrained_encoder" in new_encoder_params:
-            new_encoder_params = new_encoder_params["pretrained_encoder"]
-        for k in new_encoder_params:
-            if k in pretrained_params:
-                new_encoder_params[k] = pretrained_params[k]
-                print(f"replaced {k} in pretrained_encoder")
+        for image_key in image_keys:
+            new_encoder_params = encoder_params['params'][f"encoder_{image_key}"]
+            if "pretrained_encoder" in new_encoder_params:
+                new_encoder_params = new_encoder_params["pretrained_encoder"]
+            for k in new_encoder_params:
+                if k in pretrained_params:
+                    new_encoder_params[k] = pretrained_params[k]
+                    print(f"replaced {k} in pretrained_encoder")
 
         return encoder_params
 
@@ -139,20 +173,16 @@ class ResNet10Wrapper(gym.ObservationWrapper):
         """
         
         self.rng, subrng = jax.random.split(self.rng)
-        
-        # Stack images for batch processing
-        images = jnp.concatenate([observation[k] for k in self.image_keys], axis=0)
-        if self.augment:
-            aug_images = batched_random_crop(images, subrng, padding=4, num_batch_dims=1)
-            images = jnp.concatenate([images, aug_images], axis=0)
-        
+        # Create a dictionary of just the images we need to process
+        image_dict = {k: observation[k] for k in self.image_keys}
+        aug_images = {f"aug_{k}":batched_random_crop(observation[k], subrng, padding=4, num_batch_dims=1) for k in self.image_keys}  
+        image_dict.update(aug_images)  
         # Single device transfer for all images
-        obs = jax.device_put(images)
+        obs = jax.device_put(image_dict)
         embeddings = self._jit_encode(self.encoder_params, obs)
         
         # Single host transfer for all embeddings
         embeddings_np = jax.device_get(embeddings)
-        print(f"embeddings_np: {embeddings_np.shape}")
         
         for image_key, embedding in zip(self.image_keys, embeddings_np):
             observation[f"embedding_{image_key}"] = embedding

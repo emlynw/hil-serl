@@ -22,7 +22,7 @@ def main():
     env = TimeLimit(env, max_episode_steps=500)    
     env = SERLObsWrapper(env)
     env = ChunkingWrapper(env, obs_horizon=1, act_exec_horizon=None)
-    env = ResNet10Wrapper(env, image_keys=('wrist1', 'wrist2',), pooling_method='spatial_learned_embeddings')
+    env = ResNet10Wrapper(env, image_keys=('wrist1', 'wrist2',))
     waitkey = 100
     resize_resolution = (480, 480)
 
@@ -41,7 +41,6 @@ def main():
         i=0
         
         while not (terminated or truncated):
-            print(f"image shape: {obs['wrist2'].shape}")
             i+=1
             # Display the environment
             if render_mode == "rgb_array":
