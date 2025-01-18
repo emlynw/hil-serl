@@ -256,7 +256,7 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         chex.assert_shape(target_next_grasp_q, (batch_size,))
 
         # Compute target Q-values
-        grasp_rewards = batch["rewards"] + batch["grasp_penalty"]
+        grasp_rewards = batch["rewards"]
         target_grasp_q = (
             grasp_rewards
             + self.config["discount"] * batch["masks"] * target_next_grasp_q
@@ -366,7 +366,7 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         """
         batch_size = batch["rewards"].shape[0]
         chex.assert_tree_shape_prefix(batch, (batch_size,))
-        chex.assert_shape(batch["actions"], (batch_size, 7))
+        chex.assert_shape(batch["actions"], (batch_size, 5))
 
         if self.config["image_keys"][0] not in batch["next_observations"]:
             batch = _unpack(batch)
