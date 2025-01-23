@@ -131,11 +131,11 @@ class GamepadIntervention(gym.ActionWrapper):
 
     Includes a gear system for changing translation/rotation speeds with the D-pad.
     """
-    def __init__(self, env, action_indices=None):
+    def __init__(self, env, action_indices=None, gripper_enabled=True):
         super().__init__(env)
 
         # Check if environment action space includes a gripper
-        self.gripper_enabled = (self.action_space.shape != (6,))
+        self.gripper_enabled = gripper_enabled
 
         # Create our gamepad "expert" interface
         self.expert = GamepadExpert()
