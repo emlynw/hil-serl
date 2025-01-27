@@ -61,6 +61,7 @@ def main():
                 action = info['intervene_action']
             
             obs, reward, terminated, truncated, info = env.step(action)
+            print(info["success_button"])
             i+=1
         
 if __name__ == "__main__":

@@ -115,13 +115,14 @@ class GamepadExpert:
                              pitch, 
                              yaw], dtype=np.float32)
 
-        # For gripper: left bumper (LB=4) or right bumper (RB=5).
-        # You could also use separate buttons, e.g. LB=4, RB=5
-        # Gripper control with A button (button 0) for toggling
-        left_bumper  = bool(self.joystick.get_button(2))
-        right_bumper = bool(self.joystick.get_button(0))
+        # Gripper control with A button (button 0) for closing, x button for opening
+        left  = bool(self.joystick.get_button(2))
+        right = bool(self.joystick.get_button(0))
 
-        return expert_a, (left_bumper, right_bumper)
+        truncated = bool(self.joystick.get_button(3))
+        success = bool(self.joystick.get_button(5))
+
+        return expert_a, (left, right, success, truncated)
 
 
 class GamepadIntervention(gym.ActionWrapper):
@@ -152,7 +153,7 @@ class GamepadIntervention(gym.ActionWrapper):
         with the user's gamepad input.
         """
         expert_a, buttons = self.expert.get_action()
-        self.left, self.right = buttons
+        self.left, self.right, self.success, self.truncate = buttons
 
         # Determine if user is actively intervening
         intervened = False
@@ -202,6 +203,8 @@ class GamepadIntervention(gym.ActionWrapper):
         # Store left/right bumper usage
         info["left"] = self.left
         info["right"] = self.right
+        info["success_key"] = self.success
+        truncated = self.truncate
 
         # Store current speeds in the info dict (useful for logging)
         info["translation_speed"] = self.expert.get_translation_speed()
