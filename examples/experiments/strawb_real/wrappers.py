@@ -207,7 +207,8 @@ class VideoRecorderReal(gym.Wrapper):
         self.save_dir = save_dir
         self.camera_name = camera_name
         os.makedirs(save_dir, exist_ok=True)
-        num_vids = len([f for f in os.listdir(save_dir) if f.endswith(camera_name)])
+        num_vids = len([f for f in os.listdir(save_dir) if f.endswith(f"{camera_name}.mp4")])
+        print(f"num_vids: {num_vids}")
         current_episode = num_vids * record_every
 
         if isinstance(resize_resolution, int):

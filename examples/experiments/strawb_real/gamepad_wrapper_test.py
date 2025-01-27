@@ -19,7 +19,7 @@ def main():
     
 
     env = gym.make("franka_ros2_gym/ReachIKDeltaRealStrawbEnv", pos_scale = 0.2, rot_scale=1.0, cameras=image_keys, randomize_domain=False, ee_dof=6)
-    env = TimeLimit(env, max_episode_steps=30)
+    env = TimeLimit(env, max_episode_steps=300)
     env = GamepadIntervention(env)
     env = ExplorationMemory(env)
     env = Quat2EulerWrapper(env)
@@ -42,9 +42,8 @@ def main():
         rotate = True
         
         while not terminated and not truncated:
-            print(obs.keys())
+            print(i)
             wrist2 = obs["wrist2"][0]
-            print(f"wrist2 shape: {wrist2.shape}")
             cv2.imshow("wrist2", cv2.resize(cv2.cvtColor(wrist2, cv2.COLOR_RGB2BGR), resize_resolution))
             wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
             cv2.imshow("wrist1", cv2.resize(cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR), resize_resolution))
