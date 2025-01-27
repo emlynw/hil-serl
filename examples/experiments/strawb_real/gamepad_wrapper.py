@@ -204,7 +204,8 @@ class GamepadIntervention(gym.ActionWrapper):
         info["left"] = self.left
         info["right"] = self.right
         info["success_key"] = self.success
-        truncated = self.truncate
+        if self.truncate or truncated:
+            truncated=True
 
         # Store current speeds in the info dict (useful for logging)
         info["translation_speed"] = self.expert.get_translation_speed()

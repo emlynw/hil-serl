@@ -95,6 +95,16 @@ def main(_):
 
         if done or truncated:
             obs, _ = env.reset()
+            print("\nEpisode complete. Press Any key to start a new episode")
+            # Show reset screen
+            wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
+            wrist2 = cv2.resize(wrist2, (480, 480))
+            wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
+            wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
+            wrist1 = cv2.resize(wrist1, (480, 480))
+            combined = np.vstack((wrist2, wrist1))
+            cv2.imshow("Wrist Views", combined)
+            cv2.waitKey(0)
 
     if not os.path.exists("./classifier_data"):
         os.makedirs("./classifier_data")
