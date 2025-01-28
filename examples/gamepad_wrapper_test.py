@@ -3,8 +3,8 @@ from gymnasium.wrappers import TimeLimit
 import cv2
 from franka_ros2_gym import envs
 import numpy as np
-from gamepad_wrapper import GamepadIntervention
-from wrappers import Quat2EulerWrapper, ActionState, VideoRecorderReal, ExplorationMemory
+from experiments.strawb_real.gamepad_wrapper import GamepadIntervention
+from experiments.strawb_real.wrappers import Quat2EulerWrapper, ActionState, VideoRecorderReal, ExplorationMemory
 from serl_launcher.wrappers.serl_obs_wrappers import SERLObsWrapper
 from serl_launcher.wrappers.chunking import ChunkingWrapper
 from experiments.mappings import CONFIG_MAPPING
@@ -21,8 +21,6 @@ def main():
     config = CONFIG_MAPPING[exp_name]()
 
     env = config.get_environment(fake_env=False, save_video=True, video_res=480, state_res=128, video_dir="./videos", classifier=False)
-
-    print(env.observation_space['state'].shape)
      
     waitkey = 10
     resize_resolution = (480, 480)
@@ -36,8 +34,8 @@ def main():
         rotate = True
         
         while not terminated and not truncated:
-            print(obs['state'].shape)
             print(i)
+            print(obs['state'][0][14:17])
             wrist2 = obs["wrist2"][0]
             cv2.imshow("wrist2", cv2.resize(cv2.cvtColor(wrist2, cv2.COLOR_RGB2BGR), resize_resolution))
             wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
@@ -56,7 +54,6 @@ def main():
                 action = info['intervene_action']
             
             obs, reward, terminated, truncated, info = env.step(action)
-            print(info["success_key"])
             i+=1
         
 if __name__ == "__main__":

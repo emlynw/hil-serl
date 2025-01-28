@@ -1,24 +1,34 @@
-import copy
 import os
 from tqdm import tqdm
 import numpy as np
+import copy
 import pickle as pkl
 import datetime
 from absl import app, flags
-from pynput import keyboard
+import time
 import cv2
 import tkinter as tk
+from pynput import keyboard
 
 from experiments.mappings import CONFIG_MAPPING
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("exp_name", None, "Name of experiment corresponding to folder.")
-flags.DEFINE_integer("successes_needed", 100, "Number of successful transitions to collect.")
+flags.DEFINE_integer("successes_needed", 20, "Number of successful demos to collect.")
+
+reset_key = False
+def on_press(key):
+    global reset_key
+    try:
+        if str(key) == 'Key.enter':
+            reset_key = True
+    except AttributeError:
+        pass
 
 def main(_):
     assert FLAGS.exp_name in CONFIG_MAPPING, 'Experiment folder not found.'
     config = CONFIG_MAPPING[FLAGS.exp_name]()
-    env = config.get_environment(fake_env=False, save_video=True, video_res=480, state_res=128, video_dir="./classifier_videos", classifier=False)
+    env = config.get_environment(fake_env=False, save_video=True, video_dir='./demo_videos', classifier=True)
 
     waitkey=10
      # Calculate window dimensions and position
@@ -40,15 +50,18 @@ def main(_):
     cv2.namedWindow("Wrist Views", cv2.WINDOW_NORMAL)
     cv2.resizeWindow("Wrist Views", window_width, window_height)
     cv2.moveWindow("Wrist Views", x_pos, y_pos)
-
-
-    obs, _ = env.reset()
-    successes = []
-    failures = []
+    
+    obs, info = env.reset()
+    print("Reset done")
+    transitions = []
+    success_count = 0
     success_needed = FLAGS.successes_needed
     pbar = tqdm(total=success_needed)
+    trajectory = []
+    returns = 0
+    episode_success = False
     
-    while len(successes) < success_needed:
+    while success_count < success_needed:
         wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
         wrist2 = cv2.resize(wrist2, resize_resolution)
         wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
@@ -61,8 +74,13 @@ def main(_):
 
         actions = np.zeros(env.action_space.sample().shape) 
         next_obs, rew, done, truncated, info = env.step(actions)
+        returns += rew
         if "intervene_action" in info:
             actions = info["intervene_action"]
+
+        if info.get("succeed", False):
+            episode_success = True
+            print("Success")
 
         transition = copy.deepcopy(
             dict(
@@ -72,17 +90,24 @@ def main(_):
                 rewards=rew,
                 masks=1.0 - done,
                 dones=done,
+                infos=info,
             )
         )
-        obs = next_obs
-        if info['success_key']:
-            successes.append(transition)
-            pbar.update(1)
-        else:
-            failures.append(transition)
+        trajectory.append(transition)
+        
+        pbar.set_description(f"Return: {returns}")
 
+        obs = next_obs
         if done or truncated:
-            obs, _ = env.reset()
+            if episode_success:
+                for transition in trajectory:
+                    transitions.append(copy.deepcopy(transition))
+                success_count += 1
+                pbar.update(1)
+            trajectory = []
+            returns = 0
+            episode_success = False
+            obs, info = env.reset()
             print("\nEpisode complete. Press Any key to start a new episode")
             # Show reset screen
             wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
@@ -93,19 +118,14 @@ def main(_):
             combined = np.vstack((wrist2, wrist1))
             cv2.imshow("Wrist Views", combined)
             cv2.waitKey(0)
-
-    if not os.path.exists("./classifier_data"):
-        os.makedirs("./classifier_data")
+            
+    if not os.path.exists("./demo_data"):
+        os.makedirs("./demo_data")
     uuid = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    file_name = f"./classifier_data/{FLAGS.exp_name}_{success_needed}_success_images_{uuid}.pkl"
+    file_name = f"./demo_data/{FLAGS.exp_name}_{success_needed}_demos_{uuid}.pkl"
     with open(file_name, "wb") as f:
-        pkl.dump(successes, f)
-        print(f"saved {success_needed} successful transitions to {file_name}")
+        pkl.dump(transitions, f)
+        print(f"saved {success_needed} demos to {file_name}")
 
-    file_name = f"./classifier_data/{FLAGS.exp_name}_failure_images_{uuid}.pkl"
-    with open(file_name, "wb") as f:
-        pkl.dump(failures, f)
-        print(f"saved {len(failures)} failure transitions to {file_name}")
-        
 if __name__ == "__main__":
     app.run(main)

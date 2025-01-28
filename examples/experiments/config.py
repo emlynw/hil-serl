@@ -35,7 +35,7 @@ class DefaultTrainingConfig:
     
     # "single-arm-learned-gripper", "dual-arm-learned-gripper" for with learned gripper, 
     # "single-arm-fixed-gripper", "dual-arm-fixed-gripper" for without learned gripper (i.e. pregrasped)
-    setup_mode: str = "single-arm-fixed-gripper"
+    setup_mode: str = "single-arm-learned-gripper"
 
     @abstractmethod
     def get_environment(self, fake_env=False, save_video=False, classifier=False):

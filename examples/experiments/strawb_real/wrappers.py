@@ -245,16 +245,16 @@ class VideoRecorderReal(gym.Wrapper):
                         interpolation=cv2.INTER_CUBIC,
                     )
 
-            cv2.putText(
-                frame,
-                f"{reward:.3f}",
-                (10, 40),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                (0, 255, 0),
-                1,
-                cv2.LINE_AA,
-            )
+            # cv2.putText(
+            #     frame,
+            #     f"{reward:.3f}",
+            #     (10, 40),
+            #     cv2.FONT_HERSHEY_SIMPLEX,
+            #     0.5,
+            #     (0, 255, 0),
+            #     1,
+            #     cv2.LINE_AA,
+            # )
 
             self.frames.append(frame)
 

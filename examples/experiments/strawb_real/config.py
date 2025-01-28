@@ -28,7 +28,7 @@ class TrainConfig(DefaultTrainingConfig):
     encoder_type = "resnet-pretrained"
     setup_mode = "single-arm-learned-gripper"
     video_res = 480
-    state_res = 224
+    state_res = 128
 
     def get_environment(self, fake_env=False, save_video=False, video_dir='', video_res=video_res, state_res=state_res, classifier=False, obs_horizon=1):
         env = gym.make("franka_ros2_gym/ReachIKDeltaRealStrawbEnv", pos_scale = 0.2, rot_scale=1.0, cameras=self.image_keys, width=video_res, height=video_res, randomize_domain=True, ee_dof=6)
@@ -59,7 +59,8 @@ class TrainConfig(DefaultTrainingConfig):
             def reward_func(obs):
                 sigmoid = lambda x: 1 / (1 + jnp.exp(-x))
                 # added check for z position to further robustify classifier, but should work without as well
-                return int(sigmoid(classifier(obs)) > 0.85)
+                logits = jnp.squeeze(classifier(obs))
+                return int(sigmoid(logits) > 0.85)
 
             env = MultiCameraBinaryRewardClassifierWrapper(env, reward_func)
         return env
