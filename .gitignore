@@ -7,3 +7,5 @@ demo_buffer/
 **/checkpoint*/
 eval_videos/
 wandb/
+classifier_data/
+classifier_videos/

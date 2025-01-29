@@ -28,10 +28,17 @@ def on_press(key):
 def main(_):
     assert FLAGS.exp_name in CONFIG_MAPPING, 'Experiment folder not found.'
     config = CONFIG_MAPPING[FLAGS.exp_name]()
-    env = config.get_environment(fake_env=False, save_video=True, video_dir='./demo_videos', classifier=True)
+    env = config.get_environment(
+        fake_env=False,
+        save_video=True,
+        video_res=480,
+        state_res=256,
+        video_dir='./demo_videos',
+        classifier=True
+    )
 
-    waitkey=10
-     # Calculate window dimensions and position
+    waitkey = 10
+    # Calculate window dimensions and position
     resize_resolution = (480, 480)
     window_width = resize_resolution[0]
     window_height = resize_resolution[1] * 2  # Double height for vertical stack
@@ -53,6 +60,7 @@ def main(_):
     
     obs, info = env.reset()
     print("Reset done")
+
     transitions = []
     success_count = 0
     success_needed = FLAGS.successes_needed
@@ -60,21 +68,31 @@ def main(_):
     trajectory = []
     returns = 0
     episode_success = False
-    
+
+    # Track the step count within the current episode
+    episode_step = 0
+
     while success_count < success_needed:
+        # ---------------------------------------------------------------------
+        # Show camera views
+        # ---------------------------------------------------------------------
         wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
         wrist2 = cv2.resize(wrist2, resize_resolution)
-        wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
+        wrist1 = cv2.rotate(obs["wrist1"][0], cv2.ROTATE_180)
         wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
         wrist1 = cv2.resize(wrist1, resize_resolution)
-        # Combine images vertically
+
         combined = np.vstack((wrist2, wrist1))
         cv2.imshow("Wrist Views", combined)
         cv2.waitKey(waitkey)
 
-        actions = np.zeros(env.action_space.sample().shape) 
+        # ---------------------------------------------------------------------
+        # Environment step
+        # ---------------------------------------------------------------------
+        actions = np.zeros(env.action_space.sample().shape)
         next_obs, rew, done, truncated, info = env.step(actions)
         returns += rew
+
         if "intervene_action" in info:
             actions = info["intervene_action"]
 
@@ -82,6 +100,7 @@ def main(_):
             episode_success = True
             print("Success")
 
+        # Build transition
         transition = copy.deepcopy(
             dict(
                 observations=obs,
@@ -93,39 +112,57 @@ def main(_):
                 infos=info,
             )
         )
-        trajectory.append(transition)
-        
+
+        # Only append to the trajectory if episode_step > 0
+        # This ensures we skip the very first transition after reset.
+        if episode_step > 0:
+            trajectory.append(transition)
+
         pbar.set_description(f"Return: {returns}")
 
         obs = next_obs
+
+        episode_step += 1  # increment step count after the first real step
+
+        # ---------------------------------------------------------------------
+        # End of episode
+        # ---------------------------------------------------------------------
         if done or truncated:
             if episode_success:
-                for transition in trajectory:
-                    transitions.append(copy.deepcopy(transition))
+                # If this episode was successful, copy its entire trajectory
+                # to the main transitions buffer
+                for trans in trajectory:
+                    transitions.append(copy.deepcopy(trans))
                 success_count += 1
                 pbar.update(1)
+
+                # Save transitions if you want immediate saving upon success
+                if not os.path.exists("./demo_data"):
+                    os.makedirs("./demo_data")
+                uuid = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                file_name = f"./demo_data/{FLAGS.exp_name}_{success_needed}_demos_{uuid}.pkl"
+                with open(file_name, "wb") as f:
+                    pkl.dump(transitions, f)
+                print(f"saved {len(transitions)} transitions to {file_name}")
+
+            # Reset for the next episode
             trajectory = []
+            transitions = []
             returns = 0
             episode_success = False
+            episode_step = 0  # reset step count
             obs, info = env.reset()
+
             print("\nEpisode complete. Press Any key to start a new episode")
-            # Show reset screen
+            # Display new reset screen
             wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
             wrist2 = cv2.resize(wrist2, (480, 480))
-            wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
+            wrist1 = cv2.rotate(obs["wrist1"][0], cv2.ROTATE_180)
             wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
             wrist1 = cv2.resize(wrist1, (480, 480))
             combined = np.vstack((wrist2, wrist1))
             cv2.imshow("Wrist Views", combined)
             cv2.waitKey(0)
-            
-    if not os.path.exists("./demo_data"):
-        os.makedirs("./demo_data")
-    uuid = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    file_name = f"./demo_data/{FLAGS.exp_name}_{success_needed}_demos_{uuid}.pkl"
-    with open(file_name, "wb") as f:
-        pkl.dump(transitions, f)
-        print(f"saved {success_needed} demos to {file_name}")
 
 if __name__ == "__main__":
     app.run(main)
