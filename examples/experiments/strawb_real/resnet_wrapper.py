@@ -144,13 +144,12 @@ class ResNet10Wrapper(gym.ObservationWrapper):
             images = jnp.concatenate([images, aug_images], axis=0)
         
         # Single device transfer for all images
+        resnet_start_time = time.time()
         obs = jax.device_put(images)
         embeddings = self._jit_encode(self.encoder_params, obs)
         
         # Single host transfer for all embeddings
-        embeddings_np = jax.device_get(embeddings)
-        print(f"embeddings_np: {embeddings_np.shape}")
-        
+        embeddings_np = jax.device_get(embeddings)        
         observation[self.embedding_key] = embeddings_np
             
         return observation

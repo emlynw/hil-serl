@@ -13,7 +13,7 @@ class DefaultTrainingConfig:
     max_steps: int = 1000000
     replay_buffer_capacity: int = 20_000
 
-    random_steps: int = 1000
+    random_steps: int = 0
     training_starts: int = 1000
     steps_per_update: int = 50
 

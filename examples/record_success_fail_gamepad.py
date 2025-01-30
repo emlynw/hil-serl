@@ -140,6 +140,9 @@ def main(_):
             # Reset flags for next episode
             episode_success = False
             episode_step = 0  # reset step counter
+            successes = []
+            failures = []
+
             obs, _ = env.reset()
 
             print("\nPress Any key to start a new episode")

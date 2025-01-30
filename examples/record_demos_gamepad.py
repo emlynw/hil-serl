@@ -137,10 +137,10 @@ def main(_):
                 pbar.update(1)
 
                 # Save transitions if you want immediate saving upon success
-                if not os.path.exists("./demo_data"):
-                    os.makedirs("./demo_data")
+                if not os.path.exists("./demo_data_test"):
+                    os.makedirs("./demo_data_test")
                 uuid = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-                file_name = f"./demo_data/{FLAGS.exp_name}_{success_needed}_demos_{uuid}.pkl"
+                file_name = f"./demo_data_test/{FLAGS.exp_name}_{success_needed}_demos_{uuid}.pkl"
                 with open(file_name, "wb") as f:
                     pkl.dump(transitions, f)
                 print(f"saved {len(transitions)} transitions to {file_name}")

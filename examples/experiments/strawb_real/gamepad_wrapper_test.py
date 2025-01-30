@@ -7,6 +7,7 @@ from gamepad_wrapper import GamepadIntervention
 from wrappers import Quat2EulerWrapper, ActionState, VideoRecorderReal, ExplorationMemory
 from serl_launcher.wrappers.serl_obs_wrappers import SERLObsWrapper
 from serl_launcher.wrappers.chunking import ChunkingWrapper
+from resnet_wrapper import ResNet10Wrapper
 from experiments.mappings import CONFIG_MAPPING
 
 def main():
@@ -20,7 +21,9 @@ def main():
     proprio_keys = ["panda/tcp_pos", "panda/tcp_orientation", "panda/tcp_vel", "panda/gripper_pos", "panda/gripper_vec", "exploration"]
     config = CONFIG_MAPPING[exp_name]()
 
-    env = config.get_environment(fake_env=False, save_video=True, video_res=480, state_res=128, video_dir="./videos", classifier=False)
+    env = config.get_environment(fake_env=False, save_video=True, video_res=480, state_res=256, video_dir="./videos", classifier=False)
+    env = ResNet10Wrapper(env)
+
 
     print(env.observation_space['state'].shape)
      

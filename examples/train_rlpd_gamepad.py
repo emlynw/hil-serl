@@ -516,7 +516,8 @@ def main(_):
         )
 
         assert FLAGS.demo_path is not None
-        for path in FLAGS.demo_path:
+        pkl_files = glob.glob(os.path.join(FLAGS.demo_path[0], "*.pkl"))
+        for path in pkl_files:
             with open(path, "rb") as f:
                 transitions = pkl.load(f)
                 for transition in transitions:
