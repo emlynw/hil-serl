@@ -53,14 +53,15 @@ class TrainConfig(DefaultTrainingConfig):
                 key=jax.random.PRNGKey(0),
                 sample=env.observation_space.sample(),
                 image_keys=self.classifier_keys,
-                checkpoint_path=os.path.abspath("classifier_ckpt/"),
+                checkpoint_path=os.path.abspath("/home/emlyn/rl_franka/hil-serl/examples/classifier_ckpt/"),
             )
 
             def reward_func(obs):
                 sigmoid = lambda x: 1 / (1 + jnp.exp(-x))
                 # added check for z position to further robustify classifier, but should work without as well
                 logits = jnp.squeeze(classifier(obs))
-                return int(sigmoid(logits) > 0.85)
+                confidence = sigmoid(logits)
+                return int(sigmoid(logits) > 0.85), confidence
 
             env = MultiCameraBinaryRewardClassifierWrapper(env, reward_func)
         return env

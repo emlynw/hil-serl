@@ -83,6 +83,17 @@ def main(_):
         wrist1 = cv2.resize(wrist1, resize_resolution)
 
         combined = np.vstack((wrist2, wrist1))
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.putText(
+            combined,
+            f"Confidence: {info['confidence']:.2f}",
+            (10, 30),  # x,y
+            font,
+            1.0,       # font scale
+            (0, 0, 255),  # color (B,G,R) = red text
+            2,         # thickness
+            cv2.LINE_AA
+        )
         cv2.imshow("Wrist Views", combined)
         cv2.waitKey(waitkey)
 
@@ -129,6 +140,27 @@ def main(_):
         # ---------------------------------------------------------------------
         if done or truncated:
             if episode_success:
+                print("\nEpisode complete. Press Any key to start a new episode")
+                # Display new reset screen
+                wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
+                wrist2 = cv2.resize(wrist2, (480, 480))
+                wrist1 = cv2.rotate(obs["wrist1"][0], cv2.ROTATE_180)
+                wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
+                wrist1 = cv2.resize(wrist1, (480, 480))
+                combined = np.vstack((wrist2, wrist1))
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                cv2.putText(
+                    combined,
+                    f"Confidence: {info['confidence']:.2f}",
+                    (10, 30),  # x,y
+                    font,
+                    1.0,       # font scale
+                    (0, 0, 255),  # color (B,G,R) = red text
+                    2,         # thickness
+                    cv2.LINE_AA
+                )
+                cv2.imshow("Wrist Views", combined)
+                cv2.waitKey(0)
                 # If this episode was successful, copy its entire trajectory
                 # to the main transitions buffer
                 for trans in trajectory:
@@ -161,6 +193,17 @@ def main(_):
             wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
             wrist1 = cv2.resize(wrist1, (480, 480))
             combined = np.vstack((wrist2, wrist1))
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            cv2.putText(
+                combined,
+                f"Confidence: {info['confidence']:.2f}",
+                (10, 30),  # x,y
+                font,
+                1.0,       # font scale
+                (0, 0, 255),  # color (B,G,R) = red text
+                2,         # thickness
+                cv2.LINE_AA
+            )
             cv2.imshow("Wrist Views", combined)
             cv2.waitKey(0)
 

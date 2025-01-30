@@ -144,7 +144,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
     # Display Cameras
     waitkey=10
      # Calculate window dimensions and position
-    resize_resolution = (480, 480)
+    resize_resolution = (720, 720)
     window_width = resize_resolution[0]
     window_height = resize_resolution[1] * 2  # Double height for vertical stack
     
@@ -163,7 +163,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
     cv2.resizeWindow("Wrist Views", window_width, window_height)
     cv2.moveWindow("Wrist Views", x_pos, y_pos)
 
-    obs, _ = env.reset()
+    obs, info = env.reset()
     done = False
 
     # training loop
@@ -172,6 +172,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
     already_intervened = False
     intervention_count = 0
     intervention_steps = 0
+    total_intervention_steps = 0
 
     pbar = tqdm.tqdm(range(start_step, config.max_steps), dynamic_ncols=True)
     for step in pbar:
@@ -198,6 +199,19 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
             wrist1 = cv2.resize(wrist1, resize_resolution)
             # Combine images vertically
             combined = np.vstack((wrist2, wrist1))
+
+            # Draw the confidence in the top-left corner
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            cv2.putText(
+                combined,
+                f"Confidence: {info['confidence']:.2f}",
+                (10, 30),  # x,y
+                font,
+                1.0,       # font scale
+                (0, 0, 255),  # color (B,G,R) = red text
+                2,         # thickness
+                cv2.LINE_AA
+            )
             cv2.imshow("Wrist Views", combined)
             cv2.waitKey(waitkey)
 
@@ -240,8 +254,35 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
 
             obs = next_obs
             if done or truncated:
+                # Show reset screen
+                print("\nEpisode complete. Press Any key Reset")
+                wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
+                wrist2 = cv2.resize(wrist2, resize_resolution)
+                wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
+                wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
+                wrist1 = cv2.resize(wrist1, resize_resolution)
+                combined = np.vstack((wrist2, wrist1))
+
+                # Draw the confidence in the top-left corner
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                cv2.putText(
+                    combined,
+                    f"Confidence: {info['confidence']:.2f}",
+                    (10, 30),  # x,y
+                    font,
+                    1.0,       # font scale
+                    (0, 0, 255),  # color (B,G,R) = red text
+                    2,         # thickness
+                    cv2.LINE_AA
+                )
+                cv2.imshow("Wrist Views", combined)
+                cv2.waitKey(0)
                 info["episode"]["intervention_count"] = intervention_count
                 info["episode"]["intervention_steps"] = intervention_steps
+                # Print stats for this episode
+                print(f"Episode ended. Steps intervened: {intervention_steps}")
+                total_intervention_steps += intervention_steps
+                print(f"Total steps intervened: {total_intervention_steps}")
                 stats = {"environment": info}  # send stats to the learner to log
                 client.request("send-stats", stats)
                 pbar.set_description(f"last return: {running_return}")
@@ -251,14 +292,27 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
                 already_intervened = False
                 client.update()
                 obs, _ = env.reset()
-                print("\nEpisode complete. Press Any key to start a new episode")
+                print("\nPress Any key to begin new episode")
                 # Show reset screen
                 wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
-                wrist2 = cv2.resize(wrist2, (480, 480))
+                wrist2 = cv2.resize(wrist2, resize_resolution)
                 wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
                 wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
-                wrist1 = cv2.resize(wrist1, (480, 480))
+                wrist1 = cv2.resize(wrist1, resize_resolution)
                 combined = np.vstack((wrist2, wrist1))
+
+                # Draw the confidence in the top-left corner
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                cv2.putText(
+                    combined,
+                    f"Confidence: {info['confidence']:.2f}",
+                    (10, 30),  # x,y
+                    font,
+                    1.0,       # font scale
+                    (0, 0, 255),  # color (B,G,R) = red text
+                    2,         # thickness
+                    cv2.LINE_AA
+                )
                 cv2.imshow("Wrist Views", combined)
                 cv2.waitKey(0)
 
@@ -424,6 +478,8 @@ def main(_):
     env = config.get_environment(
         fake_env=FLAGS.learner,
         save_video=FLAGS.save_video,
+        video_res=480,
+        state_res=256,
         classifier=True,
     )
     env = RecordEpisodeStatistics(env)
