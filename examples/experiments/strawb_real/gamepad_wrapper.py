@@ -72,7 +72,7 @@ class GamepadExpert:
         """
         Poll the gamepad and construct a 6D action for the robot arm:
           [tx, ty, tz, rx, ry, rz]
-        Also returns (left_bumper_pressed, right_bumper_pressed).
+        Also returns ( (gripper opened), right_bumper_pressed).
         """
         # Update internal states for the D-pad gear system
         self.update_speeds_via_dpad()
@@ -141,7 +141,7 @@ class GamepadIntervention(gym.ActionWrapper):
         # Create our gamepad "expert" interface
         self.expert = GamepadExpert()
 
-        # Track left/right bumper presses for the info dict
+        # Track gripper button presses for the info dict
         self.left, self.right = False, False
 
         # If you only want to override certain action indices, specify them here
@@ -162,7 +162,7 @@ class GamepadIntervention(gym.ActionWrapper):
             intervened = True
 
         if self.gripper_enabled:
-            # Use bumpers to close/open gripper
+            # Use x to open gripper, a to close
             if self.left:  # close gripper
                 gripper_action = np.random.uniform(-1, -0.9, size=(1,))
                 intervened = True
@@ -170,8 +170,7 @@ class GamepadIntervention(gym.ActionWrapper):
                 gripper_action = np.random.uniform(0.9, 1, size=(1,))
                 intervened = True
             else:
-                gripper_action = np.zeros((1,))
-
+                gripper_action = np.random.uniform(-0.1, 0.1, size=(1,))
             # Combine arm + gripper
             expert_a = np.concatenate((expert_a, gripper_action), axis=0)
             # Optional random perturbation (comment out if not needed)
@@ -200,7 +199,7 @@ class GamepadIntervention(gym.ActionWrapper):
         if replaced:
             info["intervene_action"] = new_action
 
-        # Store left/right bumper usage
+        # Store gripper open/close
         info["left"] = self.left
         info["right"] = self.right
         info["success_key"] = self.success

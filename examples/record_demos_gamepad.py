@@ -39,7 +39,7 @@ def main(_):
 
     waitkey = 10
     # Calculate window dimensions and position
-    resize_resolution = (480, 480)
+    resize_resolution = (720, 720)
     window_width = resize_resolution[0]
     window_height = resize_resolution[1] * 2  # Double height for vertical stack
     
@@ -143,10 +143,10 @@ def main(_):
                 print("\nEpisode complete. Press Any key to start a new episode")
                 # Display new reset screen
                 wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
-                wrist2 = cv2.resize(wrist2, (480, 480))
+                wrist2 = cv2.resize(wrist2, resize_resolution)
                 wrist1 = cv2.rotate(obs["wrist1"][0], cv2.ROTATE_180)
                 wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
-                wrist1 = cv2.resize(wrist1, (480, 480))
+                wrist1 = cv2.resize(wrist1, resize_resolution)
                 combined = np.vstack((wrist2, wrist1))
                 font = cv2.FONT_HERSHEY_SIMPLEX
                 cv2.putText(
@@ -169,10 +169,10 @@ def main(_):
                 pbar.update(1)
 
                 # Save transitions if you want immediate saving upon success
-                if not os.path.exists("./demo_data_test"):
-                    os.makedirs("./demo_data_test")
+                if not os.path.exists("./demo_data"):
+                    os.makedirs("./demo_data")
                 uuid = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-                file_name = f"./demo_data_test/{FLAGS.exp_name}_{success_needed}_demos_{uuid}.pkl"
+                file_name = f"./demo_data/{FLAGS.exp_name}_{success_needed}_demos_{uuid}.pkl"
                 with open(file_name, "wb") as f:
                     pkl.dump(transitions, f)
                 print(f"saved {len(transitions)} transitions to {file_name}")
@@ -188,10 +188,10 @@ def main(_):
             print("\nEpisode complete. Press Any key to start a new episode")
             # Display new reset screen
             wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
-            wrist2 = cv2.resize(wrist2, (480, 480))
+            wrist2 = cv2.resize(wrist2, resize_resolution)
             wrist1 = cv2.rotate(obs["wrist1"][0], cv2.ROTATE_180)
             wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
-            wrist1 = cv2.resize(wrist1, (480, 480))
+            wrist1 = cv2.resize(wrist1, resize_resolution)
             combined = np.vstack((wrist2, wrist1))
             font = cv2.FONT_HERSHEY_SIMPLEX
             cv2.putText(

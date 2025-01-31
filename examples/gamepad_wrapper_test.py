@@ -13,17 +13,10 @@ import tkinter as tk
 import time
 
 def main():
-    render_mode = "rgb_array"
     exp_name = "strawb_real"
-    depth = False
-    save_video = True
-    image_keys = ['wrist1', 'wrist2']
-    video_dir = "./videos"
-    obs_horizon=1
-    proprio_keys = ["panda/tcp_pos", "panda/tcp_orientation", "panda/tcp_vel", "panda/gripper_pos", "panda/gripper_vec", "exploration"]
     config = CONFIG_MAPPING[exp_name]()
 
-    env = config.get_environment(fake_env=False, save_video=True, video_res=480, state_res=256, video_dir="./videos", classifier=False)
+    env = config.get_environment(fake_env=False, save_video=False, video_res=480, state_res=256, video_dir="./videos", classifier=False)
     env = ResNet10Wrapper(env)
      
     waitkey = 10
@@ -69,10 +62,8 @@ def main():
             action = np.zeros_like(env.action_space.sample())
             if "intervene_action" in info:
                 action = info['intervene_action']
-            step_start_time = time.time()
             obs, reward, terminated, truncated, info = env.step(action)
-            print(f"step time: {time.time()-step_start_time}")
-            print(f"embedding: {obs['embedding'][0][0][0][0]}")
+            print(f"xyz: {obs['state'][0][14:17]}")
             i+=1
         
 if __name__ == "__main__":

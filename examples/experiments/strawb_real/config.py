@@ -31,7 +31,7 @@ class TrainConfig(DefaultTrainingConfig):
     state_res = 256
 
     def get_environment(self, fake_env=False, save_video=False, video_dir='', video_res=video_res, state_res=state_res, classifier=False, obs_horizon=1):
-        env = gym.make("franka_ros2_gym/ReachIKDeltaRealStrawbEnv", pos_scale = 0.05, rot_scale=1.0, cameras=self.image_keys, width=video_res, height=video_res, randomize_domain=True, ee_dof=6)
+        env = gym.make("franka_ros2_gym/ReachIKDeltaRealStrawbEnv", pos_scale = 0.02, rot_scale=0.5, cameras=self.image_keys, width=video_res, height=video_res, randomize_domain=True, ee_dof=6)
         env = TimeLimit(env, max_episode_steps=300)
         if not fake_env:
             env = GamepadIntervention(env)

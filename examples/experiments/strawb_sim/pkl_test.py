@@ -2,7 +2,7 @@ import pickle
 import cv2
 
 # read the pickle file
-with open('/home/emlyn/rl_franka/hil-serl/examples/classifier_data/relabelled_success.pkl', 'rb') as f:
+with open('/home/emlyn/rl_franka/hil-serl/examples/experiments/strawb_real/learned_gripper/demo_buffer/transitions_1000.pkl', 'rb') as f:
     data = pickle.load(f)
 
 
