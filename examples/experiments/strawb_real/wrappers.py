@@ -112,7 +112,41 @@ class CustomPixelObservation(gym.ObservationWrapper):
             dsize=self.resize_resolution,
             interpolation=cv2.INTER_CUBIC,
         )
-    return observation    
+    return observation
+  
+
+class RotateImage(gym.ObservationWrapper):
+    """Rotate the pixel observation by 180 degrees."""
+
+    def __init__(self, env, pixel_key='pixels'):
+        super().__init__(env)
+        self.pixel_key = pixel_key
+
+        # Optionally, update the observation space if needed.
+        # Since a 180° rotation doesn't change the image shape,
+        # we can just copy the existing space.
+        self.observation_space = env.observation_space
+
+    def observation(self, observation):
+        # Extract the image from the observation using the specified key.
+        image = observation[self.pixel_key]
+        
+         # Check if the image has a leading batch dimension.
+        if image.shape[0] == 1:
+            # Remove the batch dimension: shape becomes (height, width, 3)
+            image = image[0]
+            # Rotate the image by 180 degrees using OpenCV.
+            rotated_image = cv2.rotate(image, cv2.ROTATE_180)
+            # Re-add the batch dimension: shape becomes (1, height, width, 3)
+            rotated_image = np.expand_dims(rotated_image, axis=0)
+        else:
+            # Otherwise, just rotate the image normally.
+            rotated_image = cv2.rotate(image, cv2.ROTATE_180)
+        
+        
+        # Replace the image in the observation with the rotated version.
+        observation[self.pixel_key] = rotated_image
+        return observation
 
 class VideoRecorder(gym.Wrapper):
   """Wrapper for rendering and saving rollouts to disk.

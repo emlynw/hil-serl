@@ -16,7 +16,7 @@ def main():
     exp_name = "strawb_real"
     config = CONFIG_MAPPING[exp_name]()
 
-    env = config.get_environment(fake_env=False, save_video=False, video_res=480, state_res=256, video_dir="./videos", classifier=False)
+    env = config.get_environment(fake_env=False, save_video=True, video_res=480, state_res=256, video_dir="./videos", classifier=False)
     env = ResNet10Wrapper(env)
      
     waitkey = 10
@@ -39,13 +39,32 @@ def main():
     cv2.namedWindow("Wrist Views", cv2.WINDOW_NORMAL)
     cv2.resizeWindow("Wrist Views", window_width, window_height)
     cv2.moveWindow("Wrist Views", x_pos, y_pos)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    text_color = (0, 0, 255)  # red
+    line_type = cv2.LINE_AA
 
     while True:
         # reset the environment
         i=0
         terminated = False
         truncated = False
+        reward = -1.0
         obs, info = env.reset()
+        print("Press any key to restart")
+        wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
+        wrist2 = cv2.resize(wrist2, (480, 480))
+        wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
+        wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
+        wrist1 = cv2.resize(wrist1, (480, 480))
+        combined = np.vstack((wrist2, wrist1))
+        cv2.putText(
+                combined,
+                f"Reward: {reward:.2f}",
+                (10, 30),
+                font, 1.0, text_color, 2, line_type
+            )
+        cv2.imshow("Wrist Views", combined)
+        cv2.waitKey(0)
         rotate = True
         
         while not terminated and not truncated:
@@ -55,6 +74,12 @@ def main():
             wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
             wrist1 = cv2.resize(wrist1, (480, 480))
             combined = np.vstack((wrist2, wrist1))
+            cv2.putText(
+                combined,
+                f"Reward: {reward:.2f}",
+                (10, 30),
+                font, 1.0, text_color, 2, line_type
+            )
             cv2.imshow("Wrist Views", combined)
             cv2.waitKey(waitkey)
             
@@ -62,8 +87,10 @@ def main():
             action = np.zeros_like(env.action_space.sample())
             if "intervene_action" in info:
                 action = info['intervene_action']
+            step_start_time = time.time()
             obs, reward, terminated, truncated, info = env.step(action)
-            print(f"xyz: {obs['state'][0][14:17]}")
+            print(f"step time: {time.time() - step_start_time}")
+            # print(f"xyz: {obs['state'][0][14:17]}")
             i+=1
         
 if __name__ == "__main__":

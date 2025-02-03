@@ -14,9 +14,10 @@ from serl_launcher.wrappers.chunking import ChunkingWrapper
 from serl_launcher.networks.reward_classifier import load_classifier_func
 
 from experiments.config import DefaultTrainingConfig
-from experiments.strawb_real.wrappers import Quat2EulerWrapper, ActionState, VideoRecorderReal, ExplorationMemory, CustomPixelObservation
+from experiments.strawb_real.wrappers import Quat2EulerWrapper, ActionState, VideoRecorderReal, ExplorationMemory, CustomPixelObservation, RotateImage
 from experiments.strawb_real.gamepad_wrapper import GamepadIntervention
 from franka_ros2_gym import envs
+from experiments.strawb_real.reward_wrappers import xirlResnet18RewardWrapper
 
 class TrainConfig(DefaultTrainingConfig):
     image_keys = ["wrist1", "wrist2"]
@@ -30,7 +31,7 @@ class TrainConfig(DefaultTrainingConfig):
     video_res = 480
     state_res = 256
 
-    def get_environment(self, fake_env=False, save_video=False, video_dir='', video_res=video_res, state_res=state_res, classifier=False, obs_horizon=1):
+    def get_environment(self, fake_env=False, save_video=False, video_dir='', video_res=video_res, state_res=state_res, classifier=False, xirl=True, obs_horizon=1):
         env = gym.make("franka_ros2_gym/ReachIKDeltaRealStrawbEnv", pos_scale = 0.02, rot_scale=0.5, cameras=self.image_keys, width=video_res, height=video_res, randomize_domain=True, ee_dof=6)
         env = TimeLimit(env, max_episode_steps=300)
         if not fake_env:
@@ -64,4 +65,8 @@ class TrainConfig(DefaultTrainingConfig):
                 return int(sigmoid(logits) > 0.85), confidence
 
             env = MultiCameraBinaryRewardClassifierWrapper(env, reward_func)
+        elif xirl:
+            # env = RotateImage(env, pixel_key="wrist1")
+            env = xirlResnet18RewardWrapper(env, image_key="wrist1")
+            
         return env

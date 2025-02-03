@@ -173,6 +173,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
     intervention_count = 0
     intervention_steps = 0
     total_intervention_steps = 0
+    reward = -1.0
 
     pbar = tqdm.tqdm(range(start_step, config.max_steps), dynamic_ncols=True)
     for step in pbar:
@@ -200,11 +201,11 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
             # Combine images vertically
             combined = np.vstack((wrist2, wrist1))
 
-            # Draw the confidence in the top-left corner
+            # Draw the reward in the top-left corner
             font = cv2.FONT_HERSHEY_SIMPLEX
             cv2.putText(
                 combined,
-                f"Confidence: {info['confidence']:.2f}",
+                f"Reward: {reward:.2f}",
                 (10, 30),  # x,y
                 font,
                 1.0,       # font scale
@@ -263,11 +264,9 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
                 wrist1 = cv2.resize(wrist1, resize_resolution)
                 combined = np.vstack((wrist2, wrist1))
 
-                # Draw the confidence in the top-left corner
-                font = cv2.FONT_HERSHEY_SIMPLEX
                 cv2.putText(
                     combined,
-                    f"Confidence: {info['confidence']:.2f}",
+                    f"Reward: {reward:.2f}",
                     (10, 30),  # x,y
                     font,
                     1.0,       # font scale
@@ -291,6 +290,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
                 intervention_steps = 0
                 already_intervened = False
                 client.update()
+                reward = -1.0
                 obs, _ = env.reset()
                 print("\nPress Any key to begin new episode")
                 # Show reset screen
@@ -302,10 +302,9 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
                 combined = np.vstack((wrist2, wrist1))
 
                 # Draw the confidence in the top-left corner
-                font = cv2.FONT_HERSHEY_SIMPLEX
                 cv2.putText(
                     combined,
-                    f"Confidence: {info['confidence']:.2f}",
+                    f"Reward: {reward:.2f}",
                     (10, 30),  # x,y
                     font,
                     1.0,       # font scale
@@ -480,7 +479,8 @@ def main(_):
         save_video=FLAGS.save_video,
         video_res=480,
         state_res=256,
-        classifier=True,
+        classifier=False,
+        xirl = True
     )
     env = RecordEpisodeStatistics(env)
 
