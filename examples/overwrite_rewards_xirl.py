@@ -12,9 +12,9 @@ def load_xirl_model(device):
     Adjust paths as needed.
     """
     # Paths
-    goal_emb_path = "/home/emlyn/xirl_results/pretrain_runs/dataset=strawb_pick_algo=xirl_embodiment=human/goal_emb.pkl"
-    distance_scale_path = "/home/emlyn/xirl_results/pretrain_runs/dataset=strawb_pick_algo=xirl_embodiment=human/distance_scale.pkl"
-    ckpt_path = "/home/emlyn/xirl_results/pretrain_runs/dataset=strawb_pick_algo=xirl_embodiment=human/checkpoints/501.ckpt"
+    goal_emb_path = "/home/emlyn/xirl_results/pretrain_runs/dataset=strawb_pick_128_algo=xirl_embodiment=human/goal_emb.pkl"
+    distance_scale_path = "/home/emlyn/xirl_results/pretrain_runs/dataset=strawb_pick_128_algo=xirl_embodiment=human/distance_scale.pkl"
+    ckpt_path = '/home/emlyn/xirl_results/pretrain_runs/dataset=strawb_pick_128_algo=xirl_embodiment=human/checkpoints/800.ckpt'
 
     # Load embeddings
     with open(goal_emb_path, "rb") as fp:
@@ -27,7 +27,7 @@ def load_xirl_model(device):
 
     # Build the model
     model = Resnet18LinearEncoderNet(
-        embedding_size=32, 
+        embedding_size=128, 
         num_ctx_frames=1,
         normalize_embeddings=False, 
         learnable_temp=False
@@ -142,8 +142,8 @@ if __name__ == "__main__":
     # python rewrite_rewards.py
     # Make sure to adjust input_dir and output_dir to your actual paths.
 
-    input_dir = "/home/emlyn/rl_franka/hil-serl/examples/demo_data"     # directory containing original .pkl files
-    output_dir = "/home/emlyn/rl_franka/hil-serl/examples/demo_data_xirl"    # directory to save updated .pkl files
+    input_dir = "/home/emlyn/rl_franka/hil-serl/examples/demo_data_new"     # directory containing original .pkl files
+    output_dir = "/home/emlyn/rl_franka/hil-serl/examples/demo_data_new_xirl"    # directory to save updated .pkl files
 
     rewrite_rewards_in_pkl(
         input_dir=input_dir,

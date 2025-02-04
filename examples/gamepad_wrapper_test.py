@@ -16,8 +16,8 @@ def main():
     exp_name = "strawb_real"
     config = CONFIG_MAPPING[exp_name]()
 
-    env = config.get_environment(fake_env=False, save_video=True, video_res=480, state_res=256, video_dir="./videos", classifier=False)
-    env = ResNet10Wrapper(env)
+    env = config.get_environment(fake_env=False, save_video=True, video_res=480, state_res=128, video_dir="./videos", classifier=True, xirl=False)
+    # env = ResNet10Wrapper(env)
      
     waitkey = 10
     # Calculate window dimensions and position
@@ -34,6 +34,8 @@ def main():
     # Calculate centered position
     x_pos = (screen_width - window_width) // 2
     y_pos = (screen_height - window_height) // 2
+
+    rotate = False
 
     # Create and configure window
     cv2.namedWindow("Wrist Views", cv2.WINDOW_NORMAL)
@@ -53,7 +55,10 @@ def main():
         print("Press any key to restart")
         wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
         wrist2 = cv2.resize(wrist2, (480, 480))
-        wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
+        if rotate:
+            wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
+        else:
+            wrist1 = obs['wrist1'][0]
         wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
         wrist1 = cv2.resize(wrist1, (480, 480))
         combined = np.vstack((wrist2, wrist1))
@@ -65,12 +70,14 @@ def main():
             )
         cv2.imshow("Wrist Views", combined)
         cv2.waitKey(0)
-        rotate = True
         
         while not terminated and not truncated:
             wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
             wrist2 = cv2.resize(wrist2, (480, 480))
-            wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
+            if rotate:
+                wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
+            else:
+                wrist1 = obs['wrist1'][0]
             wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
             wrist1 = cv2.resize(wrist1, (480, 480))
             combined = np.vstack((wrist2, wrist1))
@@ -89,8 +96,7 @@ def main():
                 action = info['intervene_action']
             step_start_time = time.time()
             obs, reward, terminated, truncated, info = env.step(action)
-            print(f"step time: {time.time() - step_start_time}")
-            # print(f"xyz: {obs['state'][0][14:17]}")
+            print(reward)
             i+=1
         
 if __name__ == "__main__":

@@ -22,23 +22,24 @@ from experiments.strawb_real.reward_wrappers import xirlResnet18RewardWrapper
 class TrainConfig(DefaultTrainingConfig):
     image_keys = ["wrist1", "wrist2"]
     classifier_keys = ["wrist1", "wrist2"]
-    proprio_keys = ["panda/tcp_pos", "panda/tcp_orientation", "panda/tcp_vel", "panda/gripper_pos", "panda/gripper_vec", "exploration"]
+    proprio_keys = ["panda/tcp_pos", "panda/tcp_orientation", "panda/tcp_vel", "panda/gripper_pos", "panda/gripper_vec"]
     buffer_period = 1000
     checkpoint_period = 500
     steps_per_update = 50
     encoder_type = "resnet-pretrained"
     setup_mode = "single-arm-learned-gripper"
     video_res = 480
-    state_res = 256
+    state_res = 128
 
-    def get_environment(self, fake_env=False, save_video=False, video_dir='', video_res=video_res, state_res=state_res, classifier=False, xirl=True, obs_horizon=1):
+    def get_environment(self, fake_env=False, save_video=False, video_dir='', video_res=video_res, state_res=state_res, classifier=False, xirl=False, obs_horizon=1):
         env = gym.make("franka_ros2_gym/ReachIKDeltaRealStrawbEnv", pos_scale = 0.02, rot_scale=0.5, cameras=self.image_keys, width=video_res, height=video_res, randomize_domain=True, ee_dof=6)
         env = TimeLimit(env, max_episode_steps=300)
         if not fake_env:
             env = GamepadIntervention(env)
-        env = ExplorationMemory(env)
+        # env = ExplorationMemory(env)
         env = Quat2EulerWrapper(env)
         env = SERLObsWrapper(env, proprio_keys=self.proprio_keys)
+        env = RotateImage(env, pixel_key="wrist1")
         if save_video:
             for image_name in self.image_keys:
                 crop_res = env.observation_space[image_name].shape[0]
@@ -46,7 +47,7 @@ class TrainConfig(DefaultTrainingConfig):
         for image_name in self.image_keys:
             crop_res = env.observation_space[image_name].shape[0]
             env = CustomPixelObservation(env, pixel_key=image_name, crop_resolution=crop_res, resize_resolution=state_res)
-        env = ActionState(env)
+        # env = ActionState(env)
         env = ChunkingWrapper(env, obs_horizon=obs_horizon, act_exec_horizon=None)
 
         if classifier:
@@ -54,7 +55,7 @@ class TrainConfig(DefaultTrainingConfig):
                 key=jax.random.PRNGKey(0),
                 sample=env.observation_space.sample(),
                 image_keys=self.classifier_keys,
-                checkpoint_path=os.path.abspath("/home/emlyn/rl_franka/hil-serl/examples/classifier_ckpt/"),
+                checkpoint_path=os.path.abspath("/home/emlyn/rl_franka/hil-serl/examples/classifier_ckpt_128/"),
             )
 
             def reward_func(obs):

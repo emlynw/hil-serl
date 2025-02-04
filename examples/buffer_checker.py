@@ -6,7 +6,7 @@ import pickle as pkl
 import cv2
 import numpy as np
 
-BUFFER_PATH = "/home/emlyn/rl_franka/hil-serl/examples/demo_data_xirl"  # update accordingly
+BUFFER_PATH = "/home/emlyn/rl_franka/hil-serl/examples/demo_data_new"  # update accordingly
 
 def main():
     # Collect all .pkl files in BUFFER_PATH
@@ -41,6 +41,7 @@ def main():
             # top-right = next_obs['wrist2']  [0]
             # bottom-right = next_obs['wrist1'][0]
             obs_wrist2 = obs["wrist2"][0]  # shape (256,256,3) in RGB
+            print(obs['state'][0])
             obs_wrist1 = obs["wrist1"][0]
             nxt_wrist2 = next_obs["wrist2"][0]
             nxt_wrist1 = next_obs["wrist1"][0]

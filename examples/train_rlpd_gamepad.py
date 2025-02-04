@@ -195,7 +195,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
         with timer.context("step_env"):
             wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
             wrist2 = cv2.resize(wrist2, resize_resolution)
-            wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
+            wrist1 = obs['wrist1'][0]
             wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
             wrist1 = cv2.resize(wrist1, resize_resolution)
             # Combine images vertically
@@ -259,7 +259,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
                 print("\nEpisode complete. Press Any key Reset")
                 wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
                 wrist2 = cv2.resize(wrist2, resize_resolution)
-                wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
+                wrist1 = obs['wrist1'][0]
                 wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
                 wrist1 = cv2.resize(wrist1, resize_resolution)
                 combined = np.vstack((wrist2, wrist1))
@@ -296,7 +296,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
                 # Show reset screen
                 wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
                 wrist2 = cv2.resize(wrist2, resize_resolution)
-                wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
+                wrist1 = obs['wrist1'][0]
                 wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
                 wrist1 = cv2.resize(wrist1, resize_resolution)
                 combined = np.vstack((wrist2, wrist1))
@@ -478,9 +478,9 @@ def main(_):
         fake_env=FLAGS.learner,
         save_video=FLAGS.save_video,
         video_res=480,
-        state_res=256,
-        classifier=False,
-        xirl = True
+        state_res=128,
+        classifier=True,
+        xirl = False
     )
     env = RecordEpisodeStatistics(env)
 
