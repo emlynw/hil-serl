@@ -6,7 +6,7 @@ import pickle as pkl
 import cv2
 import numpy as np
 
-BUFFER_PATH = "/home/emlyn/rl_franka/hil-serl/examples/demo_data_new"  # update accordingly
+BUFFER_PATH = "/home/emlyn/rl_franka/hil-serl/examples/classifier_data_episodes_relabelled"  # update accordingly
 
 def main():
     # Collect all .pkl files in BUFFER_PATH

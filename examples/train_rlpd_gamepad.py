@@ -479,8 +479,8 @@ def main(_):
         save_video=FLAGS.save_video,
         video_res=480,
         state_res=128,
-        classifier=True,
-        xirl = False
+        classifier=False,
+        xirl = True
     )
     env = RecordEpisodeStatistics(env)
 

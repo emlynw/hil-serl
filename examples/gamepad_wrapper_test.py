@@ -96,7 +96,9 @@ def main():
                 action = info['intervene_action']
             step_start_time = time.time()
             obs, reward, terminated, truncated, info = env.step(action)
-            print(reward)
+            print(f"step: {i}")
+            print(f"reward: {reward}")
+
             i+=1
         
 if __name__ == "__main__":
