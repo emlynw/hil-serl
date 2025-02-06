@@ -6,7 +6,7 @@ import pickle as pkl
 import cv2
 import numpy as np
 
-BUFFER_PATH = "/home/emlyn/rl_franka/hil-serl/examples/classifier_data_fails"  # update accordingly
+BUFFER_PATH = "/home/emlyn/rl_franka/hil-serl/examples/demo_data_128"  # update accordingly
 
 def main():
     # Collect all .pkl files in BUFFER_PATH
@@ -26,7 +26,13 @@ def main():
             obs = transition["observations"]
             next_obs = transition["next_observations"]
             reward = transition["rewards"]
+            mask = transition["masks"]
             action = transition["actions"]
+            info = transition["infos"]
+            if "grasp_penalty" in info:
+                grasp_penalty = info["grasp_penalty"]
+            else:
+                grasp_penalty = None
 
             # We'll try to access the 'state' if it exists
             # (adjust as needed based on your data structure)
@@ -66,7 +72,6 @@ def main():
 
             if reward !=0:
                 success_count+=1
-                print(success_count)
             # Show reward in top-left corner
             cv2.putText(
                 grid_image,
@@ -78,12 +83,12 @@ def main():
             # If state_info is available, show the first few elements
             if state_info is not None and len(state_info.shape) > 1:
                 # typically shape is (1, some_dim), let's just show the first 3 or so
-                state_text = np.array2string(state_info[0, 14:17], precision=2)
+                state_text = np.array2string(state_info[0], precision=3, suppress_small=True)
                 cv2.putText(
                     grid_image,
-                    f"State[:3]: {state_text}",
+                    f"State: {state_text}",
                     (10, 70),
-                    font, 0.7, (255, 255, 255), 2, line_type
+                    font, 0.4, text_color, 1, line_type
                 )
 
             action = np.array2string(action, precision=2),
@@ -91,6 +96,21 @@ def main():
                 grid_image,
                 f"Action: {action}",
                 (10, 110),
+                font, 0.4, text_color, 1, line_type
+            )
+
+            cv2.putText(
+                grid_image,
+                f"Mask: {mask}",
+                (10, 150),
+                font, 0.4, text_color, 1, line_type
+            )
+
+            
+            cv2.putText(
+                grid_image,
+                f"Grasp Penalty: {grasp_penalty}",
+                (10, 190),
                 font, 0.4, text_color, 1, line_type
             )
 

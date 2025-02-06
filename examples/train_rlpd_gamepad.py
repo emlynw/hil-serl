@@ -144,7 +144,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
     # Display Cameras
     waitkey=10
      # Calculate window dimensions and position
-    resize_resolution = (720, 720)
+    resize_resolution = (640, 640)
     window_width = resize_resolution[0]
     window_height = resize_resolution[1] * 2  # Double height for vertical stack
     
@@ -479,8 +479,8 @@ def main(_):
         save_video=FLAGS.save_video,
         video_res=480,
         state_res=128,
-        classifier=False,
-        xirl = True
+        classifier=True,
+        xirl = False,
     )
     env = RecordEpisodeStatistics(env)
 
