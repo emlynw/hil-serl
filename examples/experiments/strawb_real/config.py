@@ -7,6 +7,7 @@ from gym.wrappers import TimeLimit
 
 from franka_env.envs.wrappers import (
     MultiCameraBinaryRewardClassifierWrapper,
+    Quat2EulerWrapper,
 )
 from franka_env.envs.franka_env import DefaultEnvConfig
 from serl_launcher.wrappers.serl_obs_wrappers import SERLObsWrapper
@@ -14,15 +15,17 @@ from serl_launcher.wrappers.chunking import ChunkingWrapper
 from serl_launcher.networks.reward_classifier import load_classifier_func
 
 from experiments.config import DefaultTrainingConfig
-from experiments.strawb_real.wrappers import Quat2EulerWrapper, ActionState, VideoRecorderReal, ExplorationMemory, CustomPixelObservation, RotateImage
+from experiments.strawb_real.wrappers import ActionState, VideoRecorderReal, ExplorationMemory, CustomPixelObservation, RotateImage, GripperPenaltyWrapper
 from experiments.strawb_real.gamepad_wrapper import GamepadIntervention
+from experiments.strawb_real.relative_env import RelativeFrame
+
 from franka_ros2_gym import envs
 from experiments.strawb_real.reward_wrappers import xirlResnet18RewardWrapper
 
 class TrainConfig(DefaultTrainingConfig):
     image_keys = ["wrist1", "wrist2"]
     classifier_keys = ["wrist1", "wrist2"]
-    proprio_keys = ["panda/tcp_pos", "panda/tcp_orientation", "panda/tcp_vel", "panda/gripper_pos", "panda/gripper_vec"]
+    proprio_keys = ["tcp_pose", "tcp_vel", "gripper_pos"]
     buffer_period = 1000
     checkpoint_period = 500
     steps_per_update = 50
@@ -37,6 +40,7 @@ class TrainConfig(DefaultTrainingConfig):
         if not fake_env:
             env = GamepadIntervention(env)
         # env = ExplorationMemory(env)
+        env = RelativeFrame(env)
         env = Quat2EulerWrapper(env)
         env = SERLObsWrapper(env, proprio_keys=self.proprio_keys)
         env = RotateImage(env, pixel_key="wrist1")
@@ -55,7 +59,7 @@ class TrainConfig(DefaultTrainingConfig):
                 key=jax.random.PRNGKey(0),
                 sample=env.observation_space.sample(),
                 image_keys=self.classifier_keys,
-                checkpoint_path=os.path.abspath("/home/emlyn/rl_franka/hil-serl/examples/classifier_ckpt_128/"),
+                checkpoint_path=os.path.abspath("/home/emlyn/rl_franka/hil-serl/examples/classifier_ckpt/"),
             )
 
             def reward_func(obs):
@@ -69,5 +73,6 @@ class TrainConfig(DefaultTrainingConfig):
         elif xirl:
             # env = RotateImage(env, pixel_key="wrist1")
             env = xirlResnet18RewardWrapper(env, image_key="wrist1")
+        env = GripperPenaltyWrapper(env, penalty=-0.02)
             
         return env

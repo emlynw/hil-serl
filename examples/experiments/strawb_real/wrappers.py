@@ -334,7 +334,7 @@ class FrankaObservation(gym.ObservationWrapper):
     super().__init__(env)
     self.camera_name = camera_name
     pixel_space = self.observation_space['images'][camera_name]
-    self.state_keys = ['panda/tcp_pos', 'panda/tcp_orientation', 'panda/gripper_pos', 'panda/gripper_vec']
+    self.state_keys = ['tcp_pos', 'tcp_orientation', 'gripper_pos', 'gripper_vec']
     state_dim = 0
     for key in self.state_keys:
       state_dim += self.observation_space['state'][key].shape[0]
@@ -357,7 +357,7 @@ class FrankaDualCamObservation(gym.ObservationWrapper):
     self.camera2_name = camera2_name
     img1_space = self.observation_space['images'][camera1_name]
     img2_space = self.observation_space['images'][camera2_name]
-    self.state_keys = ['panda/tcp_pos', 'panda/tcp_orientation', 'panda/gripper_pos', 'panda/gripper_vec']
+    self.state_keys = ['tcp_pos', 'tcp_orientation', 'gripper_pos', 'gripper_vec']
     state_dim = 0
     for key in self.state_keys:
       state_dim += self.observation_space['state'][key].shape[0]
@@ -402,21 +402,21 @@ class Quat2EulerWrapper(gym.ObservationWrapper):
 
     def __init__(self, env):
         super().__init__(env)
-        assert env.observation_space["state"]["panda/tcp_orientation"].shape == (4,)
+        assert env.observation_space["state"]["tcp_orientation"].shape == (4,)
         # from xyz + quat to xyz + euler
-        self.observation_space["state"]["panda/tcp_orientation"] = gym.spaces.Box(
+        self.observation_space["state"]["tcp_orientation"] = gym.spaces.Box(
             -np.inf, np.inf, shape=(3,)
         )
 
     def observation(self, observation):
         # convert tcp pose from quat to euler
-        tcp_orientation = observation["state"]["panda/tcp_orientation"]
-        observation["state"]["panda/tcp_orientation"] = R.from_quat(tcp_orientation).as_euler("xyz")
+        tcp_orientation = observation["state"]["tcp_orientation"]
+        observation["state"]["tcp_orientation"] = R.from_quat(tcp_orientation).as_euler("xyz")
         return observation
     
 class ExplorationMemory(gym.Wrapper):
     # Add max and min xyz to the state
-    def __init__(self, env, state_key='state', ee_key='panda/tcp_pos', exploration_key='exploration'):
+    def __init__(self, env, state_key='state', ee_key='tcp_pos', exploration_key='exploration'):
         super().__init__(env)
         self.state_key = state_key
         self.ee_key = ee_key
@@ -446,3 +446,31 @@ class ExplorationMemory(gym.Wrapper):
         self.max_xyz = np.maximum(self.max_xyz, obs[self.state_key][self.ee_key])
         obs[self.state_key][self.exploration_key] = np.concatenate([self.min_xyz, self.max_xyz])
         return obs, reward, terminated, truncated, info
+    
+class GripperPenaltyWrapper(gym.Wrapper):
+    def __init__(self, env, penalty=-0.02):
+        super().__init__(env)
+        assert env.action_space.shape == (7,)
+        self.penalty = penalty
+        self.last_gripper_pos = None
+
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        self.last_gripper_pos = obs["state"][0, 0]
+        return obs, info
+
+    def step(self, action):
+        """Modifies the :attr:`env` :meth:`step` reward using :meth:`self.reward`."""
+        observation, reward, terminated, truncated, info = self.env.step(action)
+        if "intervene_action" in info:
+            action = info["intervene_action"]
+
+        if (action[-1] < -0.5 and self.last_gripper_pos > 0.9) or (
+            action[-1] > 0.5 and self.last_gripper_pos < 0.9
+        ):
+            info["grasp_penalty"] = self.penalty
+        else:
+            info["grasp_penalty"] = 0.0
+
+        self.last_gripper_pos = observation["state"][0, 0]
+        return observation, reward, terminated, truncated, info

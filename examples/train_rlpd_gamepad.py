@@ -495,7 +495,7 @@ def main(_):
             encoder_type=config.encoder_type,
             discount=config.discount,
         )
-        include_grasp_penalty = False
+        include_grasp_penalty = True
     elif config.setup_mode == 'single-arm-learned-gripper':
         agent: SACAgentHybridSingleArm = make_sac_pixel_agent_hybrid_single_arm(
             seed=FLAGS.seed,
@@ -505,7 +505,7 @@ def main(_):
             encoder_type=config.encoder_type,
             discount=config.discount,
         )
-        include_grasp_penalty = False
+        include_grasp_penalty = True
     elif config.setup_mode == 'dual-arm-learned-gripper':
         agent: SACAgentHybridDualArm = make_sac_pixel_agent_hybrid_dual_arm(
             seed=FLAGS.seed,

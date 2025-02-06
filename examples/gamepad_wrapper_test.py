@@ -11,6 +11,8 @@ from serl_launcher.wrappers.chunking import ChunkingWrapper
 from experiments.mappings import CONFIG_MAPPING
 import tkinter as tk
 import time
+np.set_printoptions(precision=3)
+np.set_printoptions(suppress=True)
 
 def main():
     exp_name = "strawb_real"
@@ -98,6 +100,7 @@ def main():
             obs, reward, terminated, truncated, info = env.step(action)
             print(f"step: {i}")
             print(f"reward: {reward}")
+            print(f"state: {obs['state']}")
 
             i+=1
         

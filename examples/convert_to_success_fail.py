@@ -6,15 +6,18 @@ import pickle as pkl
 
 def main():
     # Directory containing per-episode PKLs
-    input_dir = "./classifier_data_episodes"
-    output_dir = "./classifer_data_success_fail"
+    input_dir = "./classifier_data_episodes_fail"
+    output_dir = "./classifier_data_fails"
 
-    # Output paths for the merged success/failure transitions
+    # Ensure output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Output paths for the success/failure transitions
     success_output = os.path.join(output_dir, "all_successes.pkl")
     fail_output = os.path.join(output_dir, "all_failures.pkl")
 
-    # Gather all .pkl files that look like "episode_*.pkl"
-    episode_files = glob.glob(os.path.join(input_dir, "episode_*.pkl"))
+    # Gather all .pkl files (e.g. "episode_YYYY-MM-DD_HH-MM-SS.pkl")
+    episode_files = glob.glob(os.path.join(input_dir, "*.pkl"))
     print(f"Found {len(episode_files)} per-episode PKL files in {input_dir}")
 
     all_successes = []
@@ -23,20 +26,30 @@ def main():
     for file_path in episode_files:
         with open(file_path, "rb") as f:
             data = pkl.load(f)
-        transitions = data.get("episode_transitions", [])
 
-        # Check if any transition in this episode has reward == 1.0
-        any_reward_one = any(t["rewards"] == 1.0 for t in transitions)
+        # If your files are a list of transitions directly:
+        #   transitions = data
+        # If your files are a dict with "episode_transitions" as a list:
+        #   transitions = data.get("episode_transitions", [])
+        # Adjust as appropriate. Example below assumes the latter:
+        transitions = data
+        if not isinstance(transitions, list):
+            print(f"Warning: {file_path} doesn't contain a list of transitions.")
+            continue
 
-        # If yes, we treat this entire episode as "success"
-        if any_reward_one:
-            all_successes.extend(transitions)
-        else:
-            all_failures.extend(transitions)
+        # Classify each transition individually
+        for t in transitions:
+            # If you have exactly reward=1.0 => success
+            # (You could also do > 0 if you have other positive rewards, etc.)
+            if t["rewards"] == 1.0:
+                all_successes.append(t)
+            else:
+                all_failures.append(t)
 
-    # Now dump the combined transitions
+    # Now dump all the success/failure transitions
     with open(success_output, "wb") as f:
         pkl.dump(all_successes, f)
+
     with open(fail_output, "wb") as f:
         pkl.dump(all_failures, f)
 

@@ -32,14 +32,14 @@ def main(_):
         fake_env=False,
         save_video=True,
         video_res=480,
-        state_res=256,
+        state_res=480,
         video_dir='./demo_videos',
         classifier=True
     )
 
     waitkey = 10
     # Calculate window dimensions and position
-    resize_resolution = (720, 720)
+    resize_resolution = (640, 640)
     window_width = resize_resolution[0]
     window_height = resize_resolution[1] * 2  # Double height for vertical stack
     
@@ -78,8 +78,7 @@ def main(_):
         # ---------------------------------------------------------------------
         wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
         wrist2 = cv2.resize(wrist2, resize_resolution)
-        wrist1 = cv2.rotate(obs["wrist1"][0], cv2.ROTATE_180)
-        wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
+        wrist1 = cv2.cvtColor(obs["wrist1"][0], cv2.COLOR_RGB2BGR)
         wrist1 = cv2.resize(wrist1, resize_resolution)
 
         combined = np.vstack((wrist2, wrist1))
@@ -144,8 +143,7 @@ def main(_):
                 # Display new reset screen
                 wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
                 wrist2 = cv2.resize(wrist2, resize_resolution)
-                wrist1 = cv2.rotate(obs["wrist1"][0], cv2.ROTATE_180)
-                wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
+                wrist1 = cv2.cvtColor(obs["wrist1"][0], cv2.COLOR_RGB2BGR)
                 wrist1 = cv2.resize(wrist1, resize_resolution)
                 combined = np.vstack((wrist2, wrist1))
                 font = cv2.FONT_HERSHEY_SIMPLEX
@@ -189,8 +187,7 @@ def main(_):
             # Display new reset screen
             wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
             wrist2 = cv2.resize(wrist2, resize_resolution)
-            wrist1 = cv2.rotate(obs["wrist1"][0], cv2.ROTATE_180)
-            wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
+            wrist1 = cv2.cvtColor(obs["wrist1"][0], cv2.COLOR_RGB2BGR)
             wrist1 = cv2.resize(wrist1, resize_resolution)
             combined = np.vstack((wrist2, wrist1))
             font = cv2.FONT_HERSHEY_SIMPLEX

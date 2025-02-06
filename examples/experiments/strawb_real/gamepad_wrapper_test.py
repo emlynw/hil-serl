@@ -18,11 +18,10 @@ def main():
     image_keys = ['wrist1', 'wrist2']
     video_dir = "./videos"
     obs_horizon=1
-    proprio_keys = ["panda/tcp_pos", "panda/tcp_orientation", "panda/tcp_vel", "panda/gripper_pos", "panda/gripper_vec", "exploration"]
+    proprio_keys = ["tcp_pos", "tcp_orientation", "tcp_vel", "gripper_pos", "gripper_vec", "exploration"]
     config = CONFIG_MAPPING[exp_name]()
 
-    env = config.get_environment(fake_env=False, save_video=True, video_res=480, state_res=256, video_dir="./videos", classifier=False)
-    env = ResNet10Wrapper(env)
+    env = config.get_environment(fake_env=False, save_video=True, video_res=480, state_res=256, video_dir="./videos", classifier=True)
 
 
     print(env.observation_space['state'].shape)
