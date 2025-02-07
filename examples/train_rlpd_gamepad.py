@@ -21,6 +21,7 @@ from serl_launcher.agents.continuous.sac_hybrid_single import SACAgentHybridSing
 from serl_launcher.agents.continuous.sac_hybrid_dual import SACAgentHybridDualArm
 from serl_launcher.utils.timer_utils import Timer
 from serl_launcher.utils.train_utils import concat_batches
+from serl_launcher.utils.train_utils import _unpack
 
 from agentlace.trainer import TrainerServer, TrainerClient
 from agentlace.data.data_store import QueuedDataStore
@@ -341,6 +342,136 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
 
 ##############################################################################
 
+def gather_dense_outputs(nested: dict) -> list:
+    """
+    Recursively search the nested dictionary for all values stored under the key 'dense_outputs'.
+    
+    Parameters:
+      nested (dict): The dictionary to search.
+    
+    Returns:
+      A list of all values found for the key 'dense_outputs' (flattened).
+    """
+    outputs = []
+    for key, value in nested.items():
+        if isinstance(value, dict):
+            if "dense_outputs" in value:
+                # Append all values stored under 'dense_outputs'
+                outputs.extend(value["dense_outputs"])
+            else:
+                outputs.extend(gather_dense_outputs(value))
+    return outputs
+
+def compute_dormant_ratio_for_network(
+    apply_fn,
+    params,
+    inputs,
+    percentage_threshold=0.025
+):
+    """
+    Calls apply_fn with mutable intermediates and then measures how many neurons are
+    'dormant' in each DenseWithLogging layer (i.e. those stored under 'dense_outputs').
+    
+    Returns the global ratio of (dormant / total).
+    """
+    # Run the forward pass, capturing intermediates.
+    y, mutables = apply_fn({'params': params}, inputs, mutable=['intermediates'], train=False)
+    
+    # Recursively gather all intermediate values stored under the key 'dense_outputs'
+    dense_outputs = gather_dense_outputs(mutables["intermediates"])
+    
+    total_neurons = 0
+    dormant_neurons = 0
+
+    for layer_out in dense_outputs:
+        # layer_out is expected to have shape (batch_size, hidden_dim).
+        mean_abs = jnp.abs(layer_out).mean(axis=0)       # shape (hidden_dim,)
+        average_across_neurons = mean_abs.mean()
+        dormant_mask = mean_abs < (average_across_neurons * percentage_threshold)
+        num_dormant = dormant_mask.sum()
+        total_neurons_in_layer = layer_out.shape[1]
+        dormant_neurons += num_dormant
+        total_neurons += total_neurons_in_layer
+
+    ratio = dormant_neurons / (total_neurons + 1e-8)
+    return ratio
+
+
+def compute_all_dormant_ratios(agent, batch, threshold=0.025):
+    # 1. Prepare some inputs for the actor, critic, etc.
+    #    For example, "obs" for actor, and "obs, act" for critic, etc.
+    #    Typically, we replicate the forward calls you do at training.
+
+    batch = _unpack(batch)
+    # observations = batch["observations"]
+    next_observations = batch["next_observations"]
+    # actions = batch["actions"]
+
+    # 2. Actor ratio
+    def actor_apply_fn(variables, inputs, mutable, train):
+        # Because `agent.forward_policy` normally does “apply_fn({'params':...}, obs)”
+        # we replicate that here. But we do the direct call to “agent.state.apply_fn”:
+        return agent.state.apply_fn(
+            variables,
+            next_observations,  # your input
+            name="actor",
+            train=False,
+            mutable=mutable
+        )
+
+    actor_ratio = compute_dormant_ratio_for_network(
+        actor_apply_fn,
+        agent.state.params,     # pass the actor's parameters
+        inputs=None,            # we don’t need a separate “inputs” because the apply_fn is closure-captured
+        percentage_threshold=threshold
+    )
+
+    # # 3. Critic ratio
+    # def critic_apply_fn(variables, inputs, mutable, train):
+    #     return agent.state.apply_fn(
+    #         variables,
+    #         observations,
+    #         actions[..., :-1],    # or whatever your code uses for continuous part
+    #         name="critic",
+    #         train=train,
+    #         mutable=mutable
+    #     )
+
+    # critic_ratio = compute_dormant_ratio_for_network(
+    #     critic_apply_fn,
+    #     agent.state.params,
+    #     inputs=None,
+    #     percentage_threshold=threshold
+    # )
+
+    # # 4. Grasp critic ratio
+    # def grasp_critic_apply_fn(variables, inputs, mutable, train):
+    #     return agent.state.apply_fn(
+    #         variables,
+    #         observations,
+    #         name="grasp_critic",
+    #         train=train,
+    #         mutable=mutable
+    #     )
+
+    # grasp_ratio = compute_dormant_ratio_for_network(
+    #     grasp_critic_apply_fn,
+    #     agent.state.params,
+    #     inputs=None,
+    #     percentage_threshold=threshold
+    # )
+
+    # 5. You could do the same for your temperature net, if it has Dense layers
+    # ...
+    print(f"actor dormant ratio: {actor_ratio}")
+    # Return them all
+    return {
+        "dormant_ratio_actor": actor_ratio,
+        # "dormant_ratio_critic": critic_ratio,
+        # "dormant_ratio_grasp_critic": grasp_ratio,
+    }
+
+
 
 def learner(rng, agent, replay_buffer, demo_buffer, wandb_logger=None):
     """
@@ -442,10 +573,13 @@ def learner(rng, agent, replay_buffer, demo_buffer, wandb_logger=None):
                 batch,
                 networks_to_update=train_networks_to_update,
             )
+            
         # publish the updated network
         if step > 0 and step % (config.steps_per_update) == 0:
             agent = jax.block_until_ready(agent)
             server.publish_network(agent.state.params)
+            dormant_ratios = compute_all_dormant_ratios(agent, batch, threshold=0.025)
+            wandb_logger.log(dormant_ratios, step=step)
 
         if step % config.log_period == 0 and wandb_logger:
             wandb_logger.log(update_info, step=step)

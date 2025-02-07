@@ -14,7 +14,7 @@ from serl_launcher.common.optimizers import make_optimizer
 from serl_launcher.common.typing import Batch, Data, Params, PRNGKey
 from serl_launcher.networks.actor_critic_nets import Critic, Policy, GraspCritic, ensemblize
 from serl_launcher.networks.lagrange import GeqLagrangeMultiplier
-from serl_launcher.networks.mlp import MLP
+from serl_launcher.networks.mlp import MLP, MLPLogging
 from serl_launcher.utils.train_utils import _unpack
 
 
@@ -632,7 +632,7 @@ class SACAgentHybridSingleArm(flax.struct.PyTreeNode):
         
         policy_def = Policy(
             encoder=encoders["actor"],
-            network=MLP(**policy_network_kwargs),
+            network=MLPLogging(**policy_network_kwargs),
             action_dim=actions.shape[-1]-1,
             **policy_kwargs,
             name="actor",

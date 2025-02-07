@@ -1,4 +1,0 @@
-Trained for around 2 hours 15, 
-seemed to be learning to stay focused on the strawberries at one point 
-but then seemed to diverge and got stuck in certain position such as looking down at a patch of the table
-One or two false positives from reward classifier

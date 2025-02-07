@@ -26,7 +26,7 @@ class TrainConfig(DefaultTrainingConfig):
     image_keys = ["wrist1", "wrist2"]
     classifier_keys = ["wrist1", "wrist2"]
     proprio_keys = ["tcp_pose", "tcp_vel", "gripper_pos"]
-    buffer_period = 500
+    buffer_period = 1000
     checkpoint_period = 500
     steps_per_update = 50
     encoder_type = "resnet-pretrained"
