@@ -9,6 +9,7 @@ import numpy as np
 
 from serl_launcher.vision.film_conditioning_layer import FilmConditioning
 from serl_launcher.vision.data_augmentations import resize
+from serl_launcher.networks.mlp import DenseWithLogging
 ModuleDef = Any
 
 
@@ -109,6 +110,12 @@ class SpatialLearnedEmbeddings(nn.Module):
             jnp.expand_dims(features, -1) * jnp.expand_dims(kernel, 0), axis=(1, 2)
         )
         features = jnp.reshape(features, [batch_size, -1])
+
+        self.sow(
+            'intermediates',  # collection name
+            'embedding_outputs',  # key name for spatial embeddings
+            features
+        )
 
         if no_batch_dim:
             features = features[0]
@@ -372,7 +379,7 @@ class PreTrainedResNetEncoder(nn.Module):
             raise ValueError("pooling method not found")
 
         if self.bottleneck_dim is not None:
-            x = nn.Dense(self.bottleneck_dim)(x)
+            x = DenseWithLogging(self.bottleneck_dim)(x)
             x = nn.LayerNorm()(x)
             x = nn.tanh(x)
 

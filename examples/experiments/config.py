@@ -16,6 +16,7 @@ class DefaultTrainingConfig:
     random_steps: int = 0
     training_starts: int = 1000
     steps_per_update: int = 50
+    steps_per_log_dormant: int = 100
 
     log_period: int = 10
     eval_period: int = 2000

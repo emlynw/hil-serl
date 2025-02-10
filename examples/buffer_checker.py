@@ -6,7 +6,7 @@ import pickle as pkl
 import cv2
 import numpy as np
 
-BUFFER_PATH = "/home/emlyn/rl_franka/hil-serl/examples/demo_data_128"  # update accordingly
+BUFFER_PATH = "/home/emlyn/rl_franka/hil-serl/examples/classifier_data_new"  # update accordingly
 
 def main():
     # Collect all .pkl files in BUFFER_PATH
@@ -28,16 +28,18 @@ def main():
             reward = transition["rewards"]
             mask = transition["masks"]
             action = transition["actions"]
-            info = transition["infos"]
-            if "grasp_penalty" in info:
-                grasp_penalty = info["grasp_penalty"]
-            else:
-                grasp_penalty = None
+            if "infos" in transition:
+                info = transition["infos"]
+                if "grasp_penalty" in info:
+                    grasp_penalty = info["grasp_penalty"]
+                else:
+                    grasp_penalty = None
 
             # We'll try to access the 'state' if it exists
             # (adjust as needed based on your data structure)
             if "state" in obs:
                 state_info = obs["state"]
+                print(state_info)
             else:
                 state_info = None
 
@@ -106,13 +108,13 @@ def main():
                 font, 0.4, text_color, 1, line_type
             )
 
-            
-            cv2.putText(
-                grid_image,
-                f"Grasp Penalty: {grasp_penalty}",
-                (10, 190),
-                font, 0.4, text_color, 1, line_type
-            )
+            if "info" in transition:
+                cv2.putText(
+                    grid_image,
+                    f"Grasp Penalty: {grasp_penalty}",
+                    (10, 190),
+                    font, 0.4, text_color, 1, line_type
+                )
 
             # Display in a named window
             cv2.imshow("Buffer Viewer", grid_image)

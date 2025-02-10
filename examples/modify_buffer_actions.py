@@ -8,16 +8,16 @@ from tqdm import tqdm
 
 def remove_last_seven_state_elements(transitions):
     """
-    For each transition, remove the last 7 elements of 'observations["state"]'
+    For each transition, remove the last 1 elements of 'observations["state"]'
     and 'next_observations["state"]' if they are shaped (1, N).
     """
     for t in transitions:
         # Current observation
         if "observations" in t and "state" in t["observations"]:
             state_arr = t["observations"]["state"]  # shape (1, N)
-            if state_arr.ndim == 2 and state_arr.shape[0] == 1 and state_arr.shape[1] >= 7:
+            if state_arr.ndim == 2 and state_arr.shape[0] == 1 and state_arr.shape[1] >= 1:
                 squeezed = state_arr[0]              # shape (N,)
-                sliced = squeezed[:-7]              # remove the last 7 elements
+                sliced = squeezed[:-1]              # remove the last 1 elements
                 t["observations"]["state"] = np.expand_dims(sliced, axis=0)
 
         # Next observation
@@ -25,16 +25,16 @@ def remove_last_seven_state_elements(transitions):
             next_state_arr = t["next_observations"]["state"]  # shape (1, N)
             if (next_state_arr.ndim == 2 and 
                 next_state_arr.shape[0] == 1 and 
-                next_state_arr.shape[1] >= 7):
+                next_state_arr.shape[1] >= 1):
                 squeezed_next = next_state_arr[0]  # shape (N,)
-                sliced_next = squeezed_next[:-7]   # remove the last 7 elements
+                sliced_next = squeezed_next[:-1]   # remove the last 1 elements
                 t["next_observations"]["state"] = np.expand_dims(sliced_next, axis=0)
     
     return transitions
 
 def main():
-    input_dir = '/home/emlyn/rl_franka/hil-serl/examples/demo_data_128_no_exp'
-    output_dir = '/home/emlyn/rl_franka/hil-serl/examples/demo_data_128_small_state'
+    input_dir = '/home/emlyn/rl_franka/hil-serl/examples/classifier_data'
+    output_dir = '/home/emlyn/rl_franka/hil-serl/examples/classifier_data_new'
     os.makedirs(output_dir, exist_ok=True)
 
     pkl_files = [f for f in os.listdir(input_dir) if f.endswith(".pkl")]
@@ -54,7 +54,7 @@ def main():
         with open(out_path, "wb") as f:
             pickle.dump(transitions, f)
 
-    print("Done removing the last 7 elements from obs['state'] with shape (1, N).")
+    print("Done removing the last 1 elements from obs['state'] with shape (1, N).")
 
 if __name__ == "__main__":
     main()

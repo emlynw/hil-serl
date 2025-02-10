@@ -52,8 +52,10 @@ def main():
         i=0
         terminated = False
         truncated = False
-        reward = -1.0
+        reward = 0
+        
         obs, info = env.reset()
+        info['confidence'] = 0
         print("Press any key to restart")
         wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
         wrist2 = cv2.resize(wrist2, (480, 480))
@@ -89,6 +91,12 @@ def main():
                 (10, 30),
                 font, 1.0, text_color, 2, line_type
             )
+            cv2.putText(
+                combined,
+                f"Confidence: {info['confidence']:.2f}",
+                (10, 50),
+                font, 1.0, text_color, 2, line_type
+            )
             cv2.imshow("Wrist Views", combined)
             cv2.waitKey(waitkey)
             
@@ -100,7 +108,7 @@ def main():
             obs, reward, terminated, truncated, info = env.step(action)
             print(f"step: {i}")
             print(f"reward: {reward}")
-            print(f"state: {obs['state']}")
+            print
 
             i+=1
         

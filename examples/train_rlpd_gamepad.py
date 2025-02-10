@@ -342,7 +342,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
 
 ##############################################################################
 
-def gather_dense_outputs(nested: dict) -> list:
+def gather_intermediate_outputs(nested: dict, key_name: str) -> list:
     """
     Recursively search the nested dictionary for all values stored under the key 'dense_outputs'.
     
@@ -355,18 +355,19 @@ def gather_dense_outputs(nested: dict) -> list:
     outputs = []
     for key, value in nested.items():
         if isinstance(value, dict):
-            if "dense_outputs" in value:
+            if key_name in value:
                 # Append all values stored under 'dense_outputs'
-                outputs.extend(value["dense_outputs"])
+                outputs.extend(value[key_name])
             else:
-                outputs.extend(gather_dense_outputs(value))
+                outputs.extend(gather_intermediate_outputs(value, key_name))
     return outputs
 
 def compute_dormant_ratio_for_network(
     apply_fn,
     params,
     inputs,
-    percentage_threshold=0.025
+    percentage_threshold=0.025,
+    key_name: str = 'dense_outputs'
 ):
     """
     Calls apply_fn with mutable intermediates and then measures how many neurons are
@@ -378,12 +379,12 @@ def compute_dormant_ratio_for_network(
     y, mutables = apply_fn({'params': params}, inputs, mutable=['intermediates'], train=False)
     
     # Recursively gather all intermediate values stored under the key 'dense_outputs'
-    dense_outputs = gather_dense_outputs(mutables["intermediates"])
+    intermediate_outputs = gather_intermediate_outputs(mutables["intermediates"], key_name)
     
     total_neurons = 0
     dormant_neurons = 0
 
-    for layer_out in dense_outputs:
+    for layer_out in intermediate_outputs:
         # layer_out is expected to have shape (batch_size, hidden_dim).
         mean_abs = jnp.abs(layer_out).mean(axis=0)       # shape (hidden_dim,)
         average_across_neurons = mean_abs.mean()
@@ -398,16 +399,15 @@ def compute_dormant_ratio_for_network(
 
 
 def compute_all_dormant_ratios(agent, batch, threshold=0.025):
-    # 1. Prepare some inputs for the actor, critic, etc.
-    #    For example, "obs" for actor, and "obs, act" for critic, etc.
-    #    Typically, we replicate the forward calls you do at training.
+    """
+    Computes the dormant neuron ratio for both dense outputs and spatial outputs.
+    """
 
     batch = _unpack(batch)
-    # observations = batch["observations"]
+    observations = batch["observations"]
     next_observations = batch["next_observations"]
-    # actions = batch["actions"]
+    actions = batch["actions"]
 
-    # 2. Actor ratio
     def actor_apply_fn(variables, inputs, mutable, train):
         # Because `agent.forward_policy` normally does “apply_fn({'params':...}, obs)”
         # we replicate that here. But we do the direct call to “agent.state.apply_fn”:
@@ -419,56 +419,81 @@ def compute_all_dormant_ratios(agent, batch, threshold=0.025):
             mutable=mutable
         )
 
-    actor_ratio = compute_dormant_ratio_for_network(
+    actor_dense_ratio = compute_dormant_ratio_for_network(
         actor_apply_fn,
-        agent.state.params,     # pass the actor's parameters
-        inputs=None,            # we don’t need a separate “inputs” because the apply_fn is closure-captured
-        percentage_threshold=threshold
+        agent.state.params,     # actor's parameters
+        inputs=None,            # inputs captured via closure (if needed)
+        percentage_threshold=threshold,
+        key_name='dense_outputs'
     )
 
-    # # 3. Critic ratio
-    # def critic_apply_fn(variables, inputs, mutable, train):
-    #     return agent.state.apply_fn(
-    #         variables,
-    #         observations,
-    #         actions[..., :-1],    # or whatever your code uses for continuous part
-    #         name="critic",
-    #         train=train,
-    #         mutable=mutable
-    #     )
+    # Compute ratio for Spatial outputs.
+    actor_spatial_ratio = compute_dormant_ratio_for_network(
+        actor_apply_fn,
+        agent.state.params,
+        inputs=None,
+        percentage_threshold=threshold,
+        key_name='spatial_outputs'
+    )
 
-    # critic_ratio = compute_dormant_ratio_for_network(
-    #     critic_apply_fn,
-    #     agent.state.params,
-    #     inputs=None,
-    #     percentage_threshold=threshold
-    # )
+    def critic_apply_fn(variables, inputs, mutable, train):
+        return agent.state.apply_fn(
+            variables,
+            observations,
+            actions[..., :-1],    # or whatever your code uses for continuous part
+            name="critic",
+            train=False,
+            mutable=mutable
+        )
 
-    # # 4. Grasp critic ratio
-    # def grasp_critic_apply_fn(variables, inputs, mutable, train):
-    #     return agent.state.apply_fn(
-    #         variables,
-    #         observations,
-    #         name="grasp_critic",
-    #         train=train,
-    #         mutable=mutable
-    #     )
+    critic_dense_ratio = compute_dormant_ratio_for_network(
+        critic_apply_fn,
+        agent.state.params,
+        inputs=None,
+        percentage_threshold=threshold,
+        key_name="dense_outputs"
+    )
 
-    # grasp_ratio = compute_dormant_ratio_for_network(
-    #     grasp_critic_apply_fn,
-    #     agent.state.params,
-    #     inputs=None,
-    #     percentage_threshold=threshold
-    # )
+    critic_spatial_ratio = compute_dormant_ratio_for_network(
+        critic_apply_fn,
+        agent.state.params,
+        inputs=None,
+        percentage_threshold=threshold,
+        key_name="spatial_outputs"
+    )
 
-    # 5. You could do the same for your temperature net, if it has Dense layers
-    # ...
-    print(f"actor dormant ratio: {actor_ratio}")
-    # Return them all
+    def grasp_critic_apply_fn(variables, inputs, mutable, train):
+        return agent.state.apply_fn(
+            variables,
+            observations,
+            name="grasp_critic",
+            train=train,
+            mutable=mutable
+        )
+
+    grasp_dense_ratio = compute_dormant_ratio_for_network(
+        grasp_critic_apply_fn,
+        agent.state.params,
+        inputs=None,
+        percentage_threshold=threshold,
+        key_name="dense_outputs"
+    )
+
+    grasp_spatial_ratio = compute_dormant_ratio_for_network(
+        grasp_critic_apply_fn,
+        agent.state.params,
+        inputs=None,
+        percentage_threshold=threshold,
+        key_name="spatial_outputs"
+    )
+
     return {
-        "dormant_ratio_actor": actor_ratio,
-        # "dormant_ratio_critic": critic_ratio,
-        # "dormant_ratio_grasp_critic": grasp_ratio,
+        "dormant_ratio_actor_dense": actor_dense_ratio,
+        "dormant_ratio_actor_spatial": actor_spatial_ratio,
+        "dormant_ratio_critic_dense": critic_dense_ratio,
+        "dormant_ratio_critic_spatial": critic_spatial_ratio,
+        "dormant_ratio_grasp_critic_dense": grasp_dense_ratio,
+        "dormant_ratio_grasp_critic_spatial": grasp_spatial_ratio,
     }
 
 
@@ -578,8 +603,10 @@ def learner(rng, agent, replay_buffer, demo_buffer, wandb_logger=None):
         if step > 0 and step % (config.steps_per_update) == 0:
             agent = jax.block_until_ready(agent)
             server.publish_network(agent.state.params)
-            dormant_ratios = compute_all_dormant_ratios(agent, batch, threshold=0.025)
-            wandb_logger.log(dormant_ratios, step=step)
+        
+        if step % config.steps_per_log_dormant == 0 and wandb_logger:
+                dormant_ratios = compute_all_dormant_ratios(agent, batch, threshold=0.025)
+                wandb_logger.log(dormant_ratios, step=step)
 
         if step % config.log_period == 0 and wandb_logger:
             wandb_logger.log(update_info, step=step)
