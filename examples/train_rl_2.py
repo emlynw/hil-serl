@@ -22,6 +22,7 @@ from serl_launcher.agents.continuous.sac_hybrid_single import SACAgentHybridSing
 from serl_launcher.agents.continuous.sac_hybrid_dual import SACAgentHybridDualArm
 from serl_launcher.utils.timer_utils import Timer
 from serl_launcher.utils.train_utils import concat_batches
+from serl_launcher.utils.train_utils import _unpack
 
 from agentlace.trainer import TrainerServer, TrainerClient
 from agentlace.data.data_store import QueuedDataStore
@@ -258,6 +259,160 @@ def actor(agent, data_store, env, sampling_rng):
 
 ##############################################################################
 
+def gather_intermediate_outputs(nested: dict, key_name: str) -> list:
+    """
+    Recursively search the nested dictionary for all values stored under the key 'dense_outputs'.
+    
+    Parameters:
+      nested (dict): The dictionary to search.
+    
+    Returns:
+      A list of all values found for the key 'dense_outputs' (flattened).
+    """
+    outputs = []
+    for key, value in nested.items():
+        if isinstance(value, dict):
+            if key_name in value:
+                # Append all values stored under 'dense_outputs'
+                outputs.extend(value[key_name])
+            else:
+                outputs.extend(gather_intermediate_outputs(value, key_name))
+    return outputs
+
+def compute_dormant_ratio_for_network(
+    apply_fn,
+    params,
+    inputs,
+    percentage_threshold=0.025,
+    key_name: str = 'dense_outputs'
+):
+    """
+    Calls apply_fn with mutable intermediates and then measures how many neurons are
+    'dormant' in each DenseWithLogging layer (i.e. those stored under 'dense_outputs').
+    
+    Returns the global ratio of (dormant / total).
+    """
+    # Run the forward pass, capturing intermediates.
+    y, mutables = apply_fn({'params': params}, inputs, mutable=['intermediates'], train=False)
+    
+    # Recursively gather all intermediate values stored under the key 'dense_outputs'
+    intermediate_outputs = gather_intermediate_outputs(mutables["intermediates"], key_name)
+    
+    total_neurons = 0
+    dormant_neurons = 0
+
+    for layer_out in intermediate_outputs:
+        # layer_out is expected to have shape (batch_size, hidden_dim).
+        mean_abs = jnp.abs(layer_out).mean(axis=0)       # shape (hidden_dim,)
+        average_across_neurons = mean_abs.mean()
+        dormant_mask = mean_abs < (average_across_neurons * percentage_threshold)
+        num_dormant = dormant_mask.sum()
+        total_neurons_in_layer = layer_out.shape[1]
+        dormant_neurons += num_dormant
+        total_neurons += total_neurons_in_layer
+
+    ratio = dormant_neurons / (total_neurons + 1e-8)
+    return ratio
+
+
+def compute_all_dormant_ratios(agent, batch, threshold=0.025):
+    """
+    Computes the dormant neuron ratio for both dense outputs and spatial outputs.
+    """
+
+    batch = _unpack(batch)
+    observations = batch["observations"]
+    next_observations = batch["next_observations"]
+    actions = batch["actions"]
+
+    def actor_apply_fn(variables, inputs, mutable, train):
+        # Because `agent.forward_policy` normally does “apply_fn({'params':...}, obs)”
+        # we replicate that here. But we do the direct call to “agent.state.apply_fn”:
+        return agent.state.apply_fn(
+            variables,
+            next_observations,  # your input
+            name="actor",
+            train=False,
+            mutable=mutable
+        )
+
+    actor_dense_ratio = compute_dormant_ratio_for_network(
+        actor_apply_fn,
+        agent.state.params,     # actor's parameters
+        inputs=None,            # inputs captured via closure (if needed)
+        percentage_threshold=threshold,
+        key_name='dense_outputs'
+    )
+
+    # Compute ratio for Spatial outputs.
+    actor_spatial_ratio = compute_dormant_ratio_for_network(
+        actor_apply_fn,
+        agent.state.params,
+        inputs=None,
+        percentage_threshold=threshold,
+        key_name='spatial_outputs'
+    )
+
+    def critic_apply_fn(variables, inputs, mutable, train):
+        return agent.state.apply_fn(
+            variables,
+            observations,
+            actions[..., :-1],    # or whatever your code uses for continuous part
+            name="critic",
+            train=False,
+            mutable=mutable
+        )
+
+    critic_dense_ratio = compute_dormant_ratio_for_network(
+        critic_apply_fn,
+        agent.state.params,
+        inputs=None,
+        percentage_threshold=threshold,
+        key_name="dense_outputs"
+    )
+
+    critic_spatial_ratio = compute_dormant_ratio_for_network(
+        critic_apply_fn,
+        agent.state.params,
+        inputs=None,
+        percentage_threshold=threshold,
+        key_name="spatial_outputs"
+    )
+
+    def grasp_critic_apply_fn(variables, inputs, mutable, train):
+        return agent.state.apply_fn(
+            variables,
+            observations,
+            name="grasp_critic",
+            train=train,
+            mutable=mutable
+        )
+
+    grasp_dense_ratio = compute_dormant_ratio_for_network(
+        grasp_critic_apply_fn,
+        agent.state.params,
+        inputs=None,
+        percentage_threshold=threshold,
+        key_name="dense_outputs"
+    )
+
+    grasp_spatial_ratio = compute_dormant_ratio_for_network(
+        grasp_critic_apply_fn,
+        agent.state.params,
+        inputs=None,
+        percentage_threshold=threshold,
+        key_name="spatial_outputs"
+    )
+
+    return {
+        "dormant_ratio_actor_dense": actor_dense_ratio,
+        "dormant_ratio_actor_spatial": actor_spatial_ratio,
+        "dormant_ratio_critic_dense": critic_dense_ratio,
+        "dormant_ratio_critic_spatial": critic_spatial_ratio,
+        "dormant_ratio_grasp_critic_dense": grasp_dense_ratio,
+        "dormant_ratio_grasp_critic_spatial": grasp_spatial_ratio,
+    }
+
 
 def learner(rng, agent, replay_buffer, wandb_logger=None):
     """
@@ -344,6 +499,10 @@ def learner(rng, agent, replay_buffer, wandb_logger=None):
         if step > 0 and step % (config.steps_per_update) == 0:
             agent = jax.block_until_ready(agent)
             server.publish_network(agent.state.params)
+
+        if step % config.steps_per_log_dormant == 0 and wandb_logger:
+                dormant_ratios = compute_all_dormant_ratios(agent, batch, threshold=0.025)
+                wandb_logger.log(dormant_ratios, step=step)
 
         if step % config.log_period == 0 and wandb_logger:
             wandb_logger.log(update_info, step=step)

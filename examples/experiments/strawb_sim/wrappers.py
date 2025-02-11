@@ -112,7 +112,41 @@ class CustomPixelObservation(gym.ObservationWrapper):
             dsize=self.resize_resolution,
             interpolation=cv2.INTER_CUBIC,
         )
-    return observation    
+    return observation
+  
+
+class RotateImage(gym.ObservationWrapper):
+    """Rotate the pixel observation by 180 degrees."""
+
+    def __init__(self, env, pixel_key='pixels'):
+        super().__init__(env)
+        self.pixel_key = pixel_key
+
+        # Optionally, update the observation space if needed.
+        # Since a 180° rotation doesn't change the image shape,
+        # we can just copy the existing space.
+        self.observation_space = env.observation_space
+
+    def observation(self, observation):
+        # Extract the image from the observation using the specified key.
+        image = observation[self.pixel_key]
+        
+         # Check if the image has a leading batch dimension.
+        if image.shape[0] == 1:
+            # Remove the batch dimension: shape becomes (height, width, 3)
+            image = image[0]
+            # Rotate the image by 180 degrees using OpenCV.
+            rotated_image = cv2.rotate(image, cv2.ROTATE_180)
+            # Re-add the batch dimension: shape becomes (1, height, width, 3)
+            rotated_image = np.expand_dims(rotated_image, axis=0)
+        else:
+            # Otherwise, just rotate the image normally.
+            rotated_image = cv2.rotate(image, cv2.ROTATE_180)
+        
+        
+        # Replace the image in the observation with the rotated version.
+        observation[self.pixel_key] = rotated_image
+        return observation
 
 class VideoRecorder(gym.Wrapper):
   """Wrapper for rendering and saving rollouts to disk.
@@ -188,6 +222,86 @@ class VideoRecorder(gym.Wrapper):
       self.current_episode += 1
     return observation, reward, terminated, truncated, info
   
+class VideoRecorderReal(gym.Wrapper):
+    """Wrapper for rendering and saving rollouts to disk from a specific camera."""
+
+    def __init__(
+        self,
+        env,
+        save_dir,
+        crop_resolution,
+        resize_resolution,
+        camera_name="wrist2",
+        fps=10,
+        current_episode=0,
+        record_every=2,
+    ):
+        super().__init__(env)
+
+        self.save_dir = save_dir
+        self.camera_name = camera_name
+        os.makedirs(save_dir, exist_ok=True)
+        num_vids = len([f for f in os.listdir(save_dir) if f.endswith(f"{camera_name}.mp4")])
+        print(f"num_vids: {num_vids}")
+        current_episode = num_vids * record_every
+
+        if isinstance(resize_resolution, int):
+            self.resize_resolution = (resize_resolution, resize_resolution)
+        if isinstance(crop_resolution, int):
+            self.crop_resolution = (crop_resolution, crop_resolution)
+
+        self.resize_h, self.resize_w = self.resize_resolution
+        self.crop_h, self.crop_w = self.crop_resolution
+        self.fps = fps
+        self.enabled = True
+        self.current_episode = current_episode
+        self.record_every = record_every
+        self.frames = []
+
+    def step(self, action):
+        observation, reward, terminated, truncated, info = self.env.step(action)
+        
+        if self.current_episode % self.record_every == 0:
+            frame = observation[self.camera_name]
+            
+            if self.crop_resolution is not None:
+                if frame.shape[:2] != (self.crop_h, self.crop_w):
+                    center = frame.shape
+                    x = center[1] // 2 - self.crop_w // 2
+                    y = center[0] // 2 - self.crop_h // 2
+                    frame = frame[int(y):int(y + self.crop_h), int(x):int(x + self.crop_w)]
+
+            if self.resize_resolution is not None:
+                if frame.shape[:2] != (self.resize_h, self.resize_w):
+                    frame = cv2.resize(
+                        frame,
+                        dsize=(self.resize_w, self.resize_h),
+                        interpolation=cv2.INTER_CUBIC,
+                    )
+
+            # cv2.putText(
+            #     frame,
+            #     f"{reward:.3f}",
+            #     (10, 40),
+            #     cv2.FONT_HERSHEY_SIMPLEX,
+            #     0.5,
+            #     (0, 255, 0),
+            #     1,
+            #     cv2.LINE_AA,
+            # )
+
+            self.frames.append(frame)
+
+        if terminated or truncated:
+            if self.current_episode % self.record_every == 0:
+                filename = os.path.join(self.save_dir, f"{self.current_episode}_{self.camera_name}.mp4")
+                imageio.mimsave(filename, self.frames, fps=self.fps)
+                self.frames = []
+
+            self.current_episode += 1
+
+        return observation, reward, terminated, truncated, info
+  
 class ActionRepeat(gym.Wrapper):
   """Repeat the agent's action N times in the environment.
   Reference: https://github.com/ikostrikov/jaxrl/
@@ -220,7 +334,7 @@ class FrankaObservation(gym.ObservationWrapper):
     super().__init__(env)
     self.camera_name = camera_name
     pixel_space = self.observation_space['images'][camera_name]
-    self.state_keys = ['panda/tcp_pos', 'panda/tcp_orientation', 'panda/gripper_pos', 'panda/gripper_vec']
+    self.state_keys = ['tcp_pos', 'tcp_orientation', 'gripper_pos', 'gripper_vec']
     state_dim = 0
     for key in self.state_keys:
       state_dim += self.observation_space['state'][key].shape[0]
@@ -243,7 +357,7 @@ class FrankaDualCamObservation(gym.ObservationWrapper):
     self.camera2_name = camera2_name
     img1_space = self.observation_space['images'][camera1_name]
     img2_space = self.observation_space['images'][camera2_name]
-    self.state_keys = ['panda/tcp_pos', 'panda/tcp_orientation', 'panda/gripper_pos', 'panda/gripper_vec']
+    self.state_keys = ['tcp_pos', 'tcp_orientation', 'gripper_pos', 'gripper_vec']
     state_dim = 0
     for key in self.state_keys:
       state_dim += self.observation_space['state'][key].shape[0]
@@ -288,21 +402,21 @@ class Quat2EulerWrapper(gym.ObservationWrapper):
 
     def __init__(self, env):
         super().__init__(env)
-        assert env.observation_space["state"]["panda/tcp_orientation"].shape == (4,)
+        assert env.observation_space["state"]["tcp_orientation"].shape == (4,)
         # from xyz + quat to xyz + euler
-        self.observation_space["state"]["panda/tcp_orientation"] = gym.spaces.Box(
+        self.observation_space["state"]["tcp_orientation"] = gym.spaces.Box(
             -np.inf, np.inf, shape=(3,)
         )
 
     def observation(self, observation):
         # convert tcp pose from quat to euler
-        tcp_orientation = observation["state"]["panda/tcp_orientation"]
-        observation["state"]["panda/tcp_orientation"] = R.from_quat(tcp_orientation).as_euler("xyz")
+        tcp_orientation = observation["state"]["tcp_orientation"]
+        observation["state"]["tcp_orientation"] = R.from_quat(tcp_orientation).as_euler("xyz")
         return observation
     
 class ExplorationMemory(gym.Wrapper):
     # Add max and min xyz to the state
-    def __init__(self, env, state_key='state', ee_key='panda/tcp_pos', exploration_key='exploration'):
+    def __init__(self, env, state_key='state', ee_key='tcp_pos', exploration_key='exploration'):
         super().__init__(env)
         self.state_key = state_key
         self.ee_key = ee_key
@@ -332,3 +446,31 @@ class ExplorationMemory(gym.Wrapper):
         self.max_xyz = np.maximum(self.max_xyz, obs[self.state_key][self.ee_key])
         obs[self.state_key][self.exploration_key] = np.concatenate([self.min_xyz, self.max_xyz])
         return obs, reward, terminated, truncated, info
+    
+class GripperPenaltyWrapper(gym.Wrapper):
+    def __init__(self, env, penalty=-0.02):
+        super().__init__(env)
+        assert env.action_space.shape == (7,)
+        self.penalty = penalty
+        self.last_gripper_pos = None
+
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        self.last_gripper_pos = obs["state"][0, 0]
+        return obs, info
+
+    def step(self, action):
+        """Modifies the :attr:`env` :meth:`step` reward using :meth:`self.reward`."""
+        observation, reward, terminated, truncated, info = self.env.step(action)
+        if "intervene_action" in info:
+            action = info["intervene_action"]
+
+        if (action[-1] < -0.5 and self.last_gripper_pos > 0.9) or (
+            action[-1] > 0.5 and self.last_gripper_pos < 0.9
+        ):
+            info["grasp_penalty"] = self.penalty
+        else:
+            info["grasp_penalty"] = 0.0
+
+        self.last_gripper_pos = observation["state"][0, 0]
+        return observation, reward, terminated, truncated, info
