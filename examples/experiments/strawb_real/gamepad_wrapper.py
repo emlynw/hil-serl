@@ -18,7 +18,6 @@ class GamepadExpert:
         self.joystick.init()
 
         # Default gears if none provided
-        # Feel free to change these values or their lengths
         if translation_speeds is None:
             translation_speeds = [0.05, 0.1, 0.2, 0.5, 0.75, 1.0]
         if rotation_speeds is None:

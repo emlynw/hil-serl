@@ -618,7 +618,7 @@ def learner(rng, agent, replay_buffer, demo_buffer, wandb_logger=None):
             and step % config.checkpoint_period == 0
         ):
             checkpoints.save_checkpoint(
-                os.path.abspath(FLAGS.checkpoint_path), agent.state, step=step, keep=100
+                os.path.abspath(FLAGS.checkpoint_path), agent.state, step=step, keep=200
             )
 
 

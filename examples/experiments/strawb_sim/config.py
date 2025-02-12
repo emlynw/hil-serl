@@ -31,9 +31,10 @@ class TrainConfig(DefaultTrainingConfig):
     setup_mode = "single-arm-learned-gripper"
     video_res = 480
     state_res = 128
+    replay_buffer_capacity: int = 80_000
 
     def get_environment(self, fake_env=False, save_video=False, video_dir='', video_res=video_res, state_res=state_res, classifier=False, xirl=False, obs_horizon=1):
-        env = gym.make("gym_INB0104/ReachStrawbEnv", cameras=self.image_keys, width=video_res, height=video_res, randomize_domain=True, reward_type="sparse", ee_dof=6)
+        env = gym.make("gym_INB0104/ReachStrawbEnv", cameras=self.image_keys, width=video_res, height=video_res, randomize_domain=True, reward_type="dense", ee_dof=6)
         env = TimeLimit(env, max_episode_steps=100)
         env = RelativeFrame(env)
         env = Quat2EulerWrapper(env)
@@ -64,9 +65,9 @@ class TrainConfig(DefaultTrainingConfig):
                 return int(sigmoid(logits) > 0.85), confidence
 
             env = MultiCameraBinaryRewardClassifierWrapper(env, reward_func)
-        elif xirl:
-            # env = RotateImage(env, pixel_key="wrist1")
-            env = xirlResnet18RewardWrapper(env, image_key="wrist1")
+        # elif xirl:
+        #     # env = RotateImage(env, pixel_key="wrist1")
+        #     env = xirlResnet18RewardWrapper(env, image_key="wrist1")
         env = GripperPenaltyWrapper(env, penalty=-0.02)
             
         return env
