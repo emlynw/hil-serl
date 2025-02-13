@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 *.mp4
+*.png
 *.egg-info/
 *.pkl
 buffer/

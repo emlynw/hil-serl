@@ -4,7 +4,7 @@ import os
 import glob
 import pickle as pkl
 
-EPISODE_DIR = "./classifier_data_fails"
+EPISODE_DIR = "./classifier_data_valid"
 # Optional: set a different directory if you don't want to overwrite:
 # EPISODE_OUT_DIR = "./classifier_data_episodes_trimmed"
 EPISODE_OUT_DIR = EPISODE_DIR # Overwrite in place, by default

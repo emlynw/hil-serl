@@ -641,7 +641,7 @@ def main(_):
         video_res=480,
         state_res=128,
         classifier=True,
-        xirl = False,
+        xirl = True,
     )
     env = RecordEpisodeStatistics(env)
 

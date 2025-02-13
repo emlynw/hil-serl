@@ -16,9 +16,9 @@ class xirlResnet18RewardWrapper(gym.Wrapper):
         self.device = device
         self.rotate = rotate
 
-        goal_emb_path = "/home/emlyn/xirl_results/pretrain_runs/dataset=strawb_pick_128_algo=xirl_embodiment=human/goal_emb.pkl"
-        distance_scale_path = "/home/emlyn/xirl_results/pretrain_runs/dataset=strawb_pick_128_algo=xirl_embodiment=human/distance_scale.pkl"
-        xirl_resnet_18 = torch.load('/home/emlyn/xirl_results/pretrain_runs/dataset=strawb_pick_128_algo=xirl_embodiment=human/checkpoints/800.ckpt')
+        goal_emb_path = "/home/emlyn/xirl_results/pretrain_runs/dataset=strawb_pick_curtains_128_algo=xirl_embodiment=human/goal_emb.pkl"
+        distance_scale_path = "/home/emlyn/xirl_results/pretrain_runs/dataset=strawb_pick_curtains_128_algo=xirl_embodiment=human/distance_scale.pkl"
+        xirl_resnet_18 = torch.load('/home/emlyn/xirl_results/pretrain_runs/dataset=strawb_pick_curtains_128_algo=xirl_embodiment=human/checkpoints/1001.ckpt')
         with open(goal_emb_path, "rb") as fp:
             self.goal_emb = pickle.load(fp)
         with open(distance_scale_path, "rb") as fp:

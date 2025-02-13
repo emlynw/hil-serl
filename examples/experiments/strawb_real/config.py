@@ -53,7 +53,8 @@ class TrainConfig(DefaultTrainingConfig):
             env = CustomPixelObservation(env, pixel_key=image_name, crop_resolution=crop_res, resize_resolution=state_res)
         # env = ActionState(env)
         env = ChunkingWrapper(env, obs_horizon=obs_horizon, act_exec_horizon=None)
-
+        if xirl:
+            env = xirlResnet18RewardWrapper(env, image_key="wrist1")
         if classifier:
             classifier = load_classifier_func(
                 key=jax.random.PRNGKey(0),
@@ -70,9 +71,7 @@ class TrainConfig(DefaultTrainingConfig):
                 return int(sigmoid(logits) > 0.85), confidence
 
             env = MultiCameraBinaryRewardClassifierWrapper(env, reward_func)
-        elif xirl:
-            # env = RotateImage(env, pixel_key="wrist1")
-            env = xirlResnet18RewardWrapper(env, image_key="wrist1")
+
         env = GripperPenaltyWrapper(env, penalty=-0.02)
             
         return env

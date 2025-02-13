@@ -18,7 +18,7 @@ def main():
     exp_name = "strawb_real"
     config = CONFIG_MAPPING[exp_name]()
 
-    env = config.get_environment(fake_env=False, save_video=True, video_res=480, state_res=128, video_dir="./videos", classifier=True, xirl=False)
+    env = config.get_environment(fake_env=False, save_video=True, video_res=480, state_res=128, video_dir="./videos", classifier=True, xirl=True)
     # env = ResNet10Wrapper(env)
      
     waitkey = 10

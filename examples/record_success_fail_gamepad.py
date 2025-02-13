@@ -27,6 +27,8 @@ def main(_):
         classifier=False
     )
 
+    classifier_dir = "./classifier_data_valid"
+
     waitkey = 10
     # Calculate window dimensions and position
     resize_resolution = (480, 480)
@@ -123,16 +125,16 @@ def main(_):
                   f"Failed transitions: {len(failures)}")
             
             # Save the data
-            if not os.path.exists("./classifier_data"):
-                os.makedirs("./classifier_data")
+            if not os.path.exists(classifier_dir):
+                os.makedirs(classifier_dir)
 
             uuid = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            file_name = f"./classifier_data/{FLAGS.exp_name}_{success_needed}_success_images_{uuid}.pkl"
+            file_name = f"./{classifier_dir}/{FLAGS.exp_name}_{success_needed}_success_images_{uuid}.pkl"
             with open(file_name, "wb") as f:
                 pkl.dump(successes, f)
             print(f"saved {len(successes)} successful transitions to {file_name}")
 
-            file_name = f"./classifier_data/{FLAGS.exp_name}_failure_images_{uuid}.pkl"
+            file_name = f"./{classifier_dir}/{FLAGS.exp_name}_failure_images_{uuid}.pkl"
             with open(file_name, "wb") as f:
                 pkl.dump(failures, f)
             print(f"saved {len(failures)} failure transitions to {file_name}")

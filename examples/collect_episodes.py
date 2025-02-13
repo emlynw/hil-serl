@@ -56,7 +56,7 @@ def main(_):
     line_type = cv2.LINE_AA
 
     # 4. Where we save the per-episode .pkl files
-    output_dir = "./classifier_data_episodes_fail"
+    output_dir = "./classifier_data_valid"
     os.makedirs(output_dir, exist_ok=True)
 
     # 5. Episode counters
