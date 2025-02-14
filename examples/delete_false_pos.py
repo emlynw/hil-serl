@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import tkinter as tk
 
-EPISODE_DIR = "/home/emlyn/rl_franka/hil-serl/examples/demo_data_sparse_xirl"  # where your 'episode_YYYY-MM-DD_HH-MM-SS.pkl' files live
+EPISODE_DIR = "/home/emlyn/rl_franka/hil-serl/examples/experiments/strawb_real/xirl_classifier/demo_buffer"  # where your 'episode_YYYY-MM-DD_HH-MM-SS.pkl' files live
 EPISODE_OUT_DIR = EPISODE_DIR
 
 def load_episodes():
@@ -114,7 +114,7 @@ def main():
     global_indices = []
     for e_idx, ep in enumerate(episodes):
         for t_idx, transition in enumerate(ep["transitions"]):
-            if transition.get("rewards", 0.0) >= 1.0:
+            if transition.get("rewards", 0.0) == 1.0:
                 global_indices.append((e_idx, t_idx))
 
     if not global_indices:
@@ -127,7 +127,7 @@ def main():
 
     print("Controls:")
     print("  [s] => keep as success (reward=1.0)")
-    print("  [f] => mark as failure (reward=0.0)")
+    print("  [f] => mark as failure and delete the transition")
     print("  [n or Enter] => next transition (keep reward as-is)")
     print("  [b] => go back one transition")
     print("  [q] => quit early\n")
@@ -147,11 +147,16 @@ def main():
             transition["rewards"] = 1.0
             g_ptr += 1
         elif key == ord('f'):
-            # Mark as failure => set reward to 0.0.
-            transition["rewards"] = 100.0
-            # Remove this transition from the interactive loop.
+            # Mark as failure and delete the transition:
+            # Remove this transition from the episode.
+            episodes[e_idx]["transitions"].pop(t_idx)
+            # Remove the corresponding global index.
             global_indices.pop(g_ptr)
             last_idx -= 1
+            # Adjust subsequent indices for the same episode.
+            for i in range(g_ptr, len(global_indices)):
+                if global_indices[i][0] == e_idx and global_indices[i][1] > t_idx:
+                    global_indices[i] = (e_idx, global_indices[i][1] - 1)
             if g_ptr > last_idx:
                 g_ptr = last_idx
         elif key == ord('n') or key == 13:  # 13 = Enter

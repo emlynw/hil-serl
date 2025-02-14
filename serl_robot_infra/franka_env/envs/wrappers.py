@@ -61,7 +61,7 @@ class MultiCameraBinaryRewardClassifierWrapper(gym.Wrapper):
         if new_rew == 0:
             return obs, rew, done, truncated, info
         else:
-            done = done or new_rew            
+            done = True        
             return obs, new_rew, done, truncated, info
 
     def reset(self, **kwargs):

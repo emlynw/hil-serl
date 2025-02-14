@@ -18,12 +18,12 @@ def main():
     exp_name = "strawb_real"
     config = CONFIG_MAPPING[exp_name]()
 
-    env = config.get_environment(fake_env=False, save_video=True, video_res=480, state_res=128, video_dir="./videos", classifier=True, xirl=True)
+    env = config.get_environment(fake_env=False, save_video=True, video_res=480, state_res=128, video_dir="./videos", classifier=True, xirl=True, max_steps=500)
     # env = ResNet10Wrapper(env)
      
     waitkey = 10
     # Calculate window dimensions and position
-    resize_resolution = (480, 480)
+    resize_resolution = (640, 640)
     window_width = resize_resolution[0]
     window_height = resize_resolution[1] * 2  # Double height for vertical stack
     
@@ -58,13 +58,13 @@ def main():
         info['confidence'] = 0
         print("Press any key to restart")
         wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
-        wrist2 = cv2.resize(wrist2, (480, 480))
+        wrist2 = cv2.resize(wrist2, resize_resolution)
         if rotate:
             wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
         else:
             wrist1 = obs['wrist1'][0]
         wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
-        wrist1 = cv2.resize(wrist1, (480, 480))
+        wrist1 = cv2.resize(wrist1, resize_resolution)
         combined = np.vstack((wrist2, wrist1))
         cv2.putText(
                 combined,
@@ -77,13 +77,13 @@ def main():
         
         while not terminated and not truncated:
             wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
-            wrist2 = cv2.resize(wrist2, (480, 480))
+            wrist2 = cv2.resize(wrist2, resize_resolution)
             if rotate:
                 wrist1 = cv2.rotate(obs['wrist1'][0], cv2.ROTATE_180)
             else:
                 wrist1 = obs['wrist1'][0]
             wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
-            wrist1 = cv2.resize(wrist1, (480, 480))
+            wrist1 = cv2.resize(wrist1, resize_resolution)
             combined = np.vstack((wrist2, wrist1))
             cv2.putText(
                 combined,

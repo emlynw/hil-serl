@@ -34,9 +34,9 @@ class TrainConfig(DefaultTrainingConfig):
     video_res = 480
     state_res = 128
 
-    def get_environment(self, fake_env=False, save_video=False, video_dir='', video_res=video_res, state_res=state_res, classifier=False, xirl=False, obs_horizon=1):
+    def get_environment(self, fake_env=False, save_video=False, video_dir='', video_res=video_res, state_res=state_res, classifier=False, xirl=False, obs_horizon=1, max_steps=100):
         env = gym.make("franka_ros2_gym/ReachIKDeltaRealStrawbEnv", pos_scale = 0.01, rot_scale=0.5, cameras=self.image_keys, width=video_res, height=video_res, randomize_domain=True, ee_dof=6)
-        env = TimeLimit(env, max_episode_steps=100)
+        env = TimeLimit(env, max_episode_steps=max_steps)
         if not fake_env:
             env = GamepadIntervention(env)
         # env = ExplorationMemory(env)
@@ -68,7 +68,7 @@ class TrainConfig(DefaultTrainingConfig):
                 # added check for z position to further robustify classifier, but should work without as well
                 logits = jnp.squeeze(classifier(obs))
                 confidence = sigmoid(logits)
-                return int(sigmoid(logits) > 0.85), confidence
+                return 100*int(sigmoid(logits) > 0.85), confidence
 
             env = MultiCameraBinaryRewardClassifierWrapper(env, reward_func)
 

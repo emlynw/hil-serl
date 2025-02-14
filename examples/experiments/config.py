@@ -10,7 +10,7 @@ class DefaultTrainingConfig:
     cta_ratio: int = 2
     discount: float = 0.99
 
-    max_steps: int = 100_000
+    max_steps: int = 120_000
     replay_buffer_capacity: int = 60_000
 
     random_steps: int = 0
