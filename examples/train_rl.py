@@ -126,7 +126,7 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
     )
 
     eval_env = config.get_environment(
-        fake_env=FLAGS.learner,
+        fake_env=True,
         save_video=True,
         video_dir= os.path.join(FLAGS.checkpoint_path, "eval_videos"),
         classifier=False,
@@ -148,9 +148,9 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
     # training loop
     timer = Timer()
     running_return = 0.0
-    already_intervened = False
-    intervention_count = 0
-    intervention_steps = 0
+    # already_intervened = False
+    # intervention_count = 0
+    # intervention_steps = 0
     prev_latest_step = 0
 
     pbar = tqdm.tqdm(range(start_step, config.max_steps), dynamic_ncols=True)
@@ -223,15 +223,15 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
             if "right" in info:
                 info.pop("right")
 
-            # override the action with the intervention action
-            if "intervene_action" in info:
-                actions = info.pop("intervene_action")
-                intervention_steps += 1
-                if not already_intervened:
-                    intervention_count += 1
-                already_intervened = True
-            else:
-                already_intervened = False
+            # # override the action with the intervention action
+            # if "intervene_action" in info:
+            #     actions = info.pop("intervene_action")
+            #     intervention_steps += 1
+            #     if not already_intervened:
+            #         intervention_count += 1
+            #     already_intervened = True
+            # else:
+            #     already_intervened = False
 
             running_return += reward
             transition = dict(
@@ -246,21 +246,21 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
                 transition['grasp_penalty']= info['grasp_penalty']
             data_store.insert(transition)
             transitions.append(copy.deepcopy(transition))
-            if already_intervened:
-                intvn_data_store.insert(transition)
-                demo_transitions.append(copy.deepcopy(transition))
+            # if already_intervened:
+            #     intvn_data_store.insert(transition)
+            #     demo_transitions.append(copy.deepcopy(transition))
 
             obs = next_obs
             if done or truncated:
-                info["episode"]["intervention_count"] = intervention_count
-                info["episode"]["intervention_steps"] = intervention_steps
+                # info["episode"]["intervention_count"] = intervention_count
+                # info["episode"]["intervention_steps"] = intervention_steps
                 stats = {"environment": info}  # send stats to the learner to log
                 client.request("send-stats", stats)
                 pbar.set_description(f"last return: {running_return}")
                 running_return = 0.0
-                intervention_count = 0
-                intervention_steps = 0
-                already_intervened = False
+                # intervention_count = 0
+                # intervention_steps = 0
+                # already_intervened = False
                 client.update()
                 obs, _ = env.reset()
 
@@ -337,7 +337,7 @@ def learner(rng, agent, replay_buffer, demo_buffer, wandb_logger=None):
     # 50/50 sampling from RLPD, half from demo and half from online experience
     replay_iterator = replay_buffer.get_iterator(
         sample_args={
-            "batch_size": config.batch_size,
+            "batch_size": config.batch_size // 2,
             "pack_obs_and_next_obs": True,
         },
         device=sharding.replicate(),
@@ -368,8 +368,8 @@ def learner(rng, agent, replay_buffer, demo_buffer, wandb_logger=None):
         for critic_step in range(config.cta_ratio - 1):
             with timer.context("sample_replay_buffer"):
                 batch = next(replay_iterator)
-                # demo_batch = next(demo_iterator)
-                # batch = concat_batches(batch, demo_batch, axis=0)
+                demo_batch = next(demo_iterator)
+                batch = concat_batches(batch, demo_batch, axis=0)
 
             with timer.context("train_critics"):
                 agent, critics_info = agent.update(
@@ -379,8 +379,8 @@ def learner(rng, agent, replay_buffer, demo_buffer, wandb_logger=None):
 
         with timer.context("train"):
             batch = next(replay_iterator)
-            # demo_batch = next(demo_iterator)
-            # batch = concat_batches(batch, demo_batch, axis=0)
+            demo_batch = next(demo_iterator)
+            batch = concat_batches(batch, demo_batch, axis=0)
             agent, update_info = agent.update(
                 batch,
                 networks_to_update=train_networks_to_update,
@@ -419,7 +419,7 @@ def main(_):
 
     assert FLAGS.exp_name in CONFIG_MAPPING, "Experiment folder not found."
     env = config.get_environment(
-        fake_env=FLAGS.learner,
+        fake_env=True,
         save_video=FLAGS.save_video,
         classifier=False,
     )
@@ -505,16 +505,17 @@ def main(_):
             include_grasp_penalty=include_grasp_penalty,
         )
 
-        # assert FLAGS.demo_path is not None
-        # for path in FLAGS.demo_path:
-        #     with open(path, "rb") as f:
-        #         transitions = pkl.load(f)
-        #         for transition in transitions:
-        #             if 'infos' in transition and 'grasp_penalty' in transition['infos']:
-        #                 transition['grasp_penalty'] = transition['infos']['grasp_penalty']
-        #             demo_buffer.insert(transition)
-        # print_green(f"demo buffer size: {len(demo_buffer)}")
-        # print_green(f"online buffer size: {len(replay_buffer)}")
+        assert FLAGS.demo_path is not None
+        pkl_files = glob.glob(os.path.join(FLAGS.demo_path[0], "*.pkl"))
+        for path in pkl_files:
+            with open(path, "rb") as f:
+                transitions = pkl.load(f)
+                for transition in transitions:
+                    if 'infos' in transition and 'grasp_penalty' in transition['infos']:
+                        transition['grasp_penalty'] = transition['infos']['grasp_penalty']
+                    demo_buffer.insert(transition)
+        print_green(f"demo buffer size: {len(demo_buffer)}")
+        print_green(f"online buffer size: {len(replay_buffer)}")
 
         if FLAGS.checkpoint_path is not None and os.path.exists(
             os.path.join(FLAGS.checkpoint_path, "buffer")

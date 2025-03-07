@@ -17,8 +17,9 @@ from serl_launcher.networks.reward_classifier import load_classifier_func
 from experiments.config import DefaultTrainingConfig
 from experiments.strawb_sim.wrappers import ActionState, VideoRecorderReal, ExplorationMemory, CustomPixelObservation, RotateImage, GripperPenaltyWrapper
 from experiments.strawb_sim.relative_env import RelativeFrame
+from experiments.strawb_real.gamepad_wrapper import GamepadIntervention
 
-from gym_INB0104 import envs
+from fruit_gym import envs
 
 class TrainConfig(DefaultTrainingConfig):
     image_keys = ["wrist1", "wrist2"]
@@ -34,8 +35,10 @@ class TrainConfig(DefaultTrainingConfig):
     replay_buffer_capacity: int = 80_000
 
     def get_environment(self, fake_env=False, save_video=False, video_dir='', video_res=video_res, state_res=state_res, classifier=False, xirl=False, obs_horizon=1):
-        env = gym.make("gym_INB0104/ReachStrawbEnv", cameras=self.image_keys, width=video_res, height=video_res, randomize_domain=True, reward_type="dense", ee_dof=6)
-        env = TimeLimit(env, max_episode_steps=100)
+        env = gym.make("PickStrawbEnv", cameras=self.image_keys, width=video_res, height=video_res, randomize_domain=True, reward_type="dense", ee_dof=6, gripper_pause=True)
+        env = TimeLimit(env, max_episode_steps=150)
+        if not fake_env:
+            env = GamepadIntervention(env)
         env = RelativeFrame(env)
         env = Quat2EulerWrapper(env)
         env = SERLObsWrapper(env, proprio_keys=self.proprio_keys)
