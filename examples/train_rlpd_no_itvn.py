@@ -515,7 +515,7 @@ def main(_):
 
     assert FLAGS.exp_name in CONFIG_MAPPING, "Experiment folder not found."
     env = config.get_environment(
-        fake_env=FLAGS.learner,
+        fake_env=True,
         save_video=FLAGS.save_video,
         video_res=480,
         state_res=128,
