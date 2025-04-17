@@ -6,9 +6,9 @@ import cv2
 import numpy as np
 
 # Directory containing the episode pickle files.
-EPISODE_DIR = "./classifier_data_episodes_fail"
+EPISODE_DIR = "./demo_fails"
 # Output directory for the images.
-OUTPUT_DIR = "./xirl_fails"
+OUTPUT_DIR = "./can_fails"
 
 def load_episodes():
     """

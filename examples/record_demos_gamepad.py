@@ -38,6 +38,8 @@ flags.DEFINE_string ("exp_name",         None, "Name of experiment folder")
 flags.DEFINE_integer("successes_needed", 6,   "Successful demos to collect")
 flags.DEFINE_list   ("camera_keys", ["robot0_eye_in_hand_image", "agentview_image"],
                      "Comma‑separated camera obs keys to display / record")
+flags.DEFINE_string("save_dir", "./demo_fails", "Directory to save demos")
+flags.DEFINE_bool("save_fails", True, "Save failed episodes as well")
 
 reset_key = False
 def on_press(key):
@@ -138,15 +140,15 @@ def main(_):
 
         # -------- Episode end ------------------------------------------
         if done or truncated:
-            if episode_success:
+            if episode_success or FLAGS.save_fails:
                 transitions.extend(copy.deepcopy(trajectory))
                 success_count += 1
                 pbar.update(1)
 
-                if not os.path.exists("./demo_data"):
-                    os.makedirs("./demo_data")
+                if not os.path.exists(FLAGS.save_dir):
+                    os.makedirs(FLAGS.save_dir)
                 uuid = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-                filename = f"./demo_data/{FLAGS.exp_name}_{success_needed}_demos_{uuid}.pkl"
+                filename = f"{FLAGS.save_dir}/{FLAGS.exp_name}_{success_needed}_demos_{uuid}.pkl"
                 with open(filename, "wb") as f:
                     pkl.dump(transitions, f)
                 print(f"Saved {len(transitions)} transitions to {filename}")
