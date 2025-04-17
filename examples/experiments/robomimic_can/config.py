@@ -40,7 +40,7 @@ class TrainConfig(DefaultTrainingConfig):
     def get_environment(
         self,
         fake_env=False,
-        save_video=False,
+        save_video=True,
         video_dir="",
         video_res=480,
         state_res=128,
@@ -48,6 +48,13 @@ class TrainConfig(DefaultTrainingConfig):
         classifier=False,
         xirl=False
     ):
+        buffer_period = 1000
+        checkpoint_period = 1000
+        steps_per_update = 50
+        encoder_type = "resnet-pretrained"
+        setup_mode = "single-arm-learned-gripper"
+        video_res = 480
+        state_res = 128
         # ------------------------------------------------------------------
         # 1. Build a robomimic env  (example: PickPlaceCan w/ Panda, images)
         # ------------------------------------------------------------------
