@@ -25,6 +25,7 @@ from experiments.robomimic_can.robomimic_gym_wrapper import RobomimicGymWrapper
 # -----------------------------------------------------------------------------
 #  extra imports you need once, at top of the file
 # -----------------------------------------------------------------------------
+import robomimic.utils.env_utils as EnvUtils
 from robomimic.utils.env_utils import create_env, create_env_from_metadata
 from robomimic.utils.file_utils import get_env_metadata_from_dataset
 import robomimic.utils.obs_utils as ObsUtils
@@ -50,8 +51,6 @@ class TrainConfig(DefaultTrainingConfig):
         # ------------------------------------------------------------------
         # 1. Build a robomimic env  (example: PickPlaceCan w/ Panda, images)
         # ------------------------------------------------------------------
-        dataset_path = "/home/emlyn/datasets/robomimic/can/ph/image_v15.hdf5"
-        env_meta     = get_env_metadata_from_dataset(dataset_path)
 
         # default BC config
         config = config_factory(algo_name="bc")
@@ -66,12 +65,14 @@ class TrainConfig(DefaultTrainingConfig):
         # read config to set up metadata for observation modalities (e.g. detecting rgb observations)
         ObsUtils.initialize_obs_utils_with_config(config)
 
-        rm_env = create_env_from_metadata(
-            env_meta=env_meta,
-            env_name=env_meta["env_name"],        # e.g. "PickPlaceCan"
+        rm_env = EnvUtils.create_env(
+            env_type=1,
+            env_name="PickPlaceCan",
             render=False,
             render_offscreen=True,
             use_image_obs=True,
+            robots='Panda',
+            camera_names = ['agentview', 'robot0_eye_in_hand'],
         )
 
         # Optional: reduce DoF to match your policy (here 4 EE DoF + gripper)
