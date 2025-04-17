@@ -67,7 +67,7 @@ def print_green(x):
 ##############################################################################
 
 
-def actor(agent, data_store, intvn_data_store, env, sampling_rng):
+def actor(agent, data_store, env, sampling_rng):
     """
     This is the actor loop, which runs when "--actor" is set to True.
     """
@@ -97,6 +97,9 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
 
                 next_obs, reward, done, truncated, info = env.step(actions)
                 obs = next_obs
+                if reward == 1.0:
+                    done = True
+
 
                 if done:
                     if reward:
@@ -120,7 +123,6 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
 
     datastore_dict = {
         "actor_env": data_store,
-        "actor_env_intvn": intvn_data_store,
     }
 
     client = TrainerClient(
@@ -140,29 +142,6 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
     client.recv_network_callback(update_params)
 
     transitions = []
-    demo_transitions = []
-
-    # Display Cameras
-    waitkey=10
-     # Calculate window dimensions and position
-    resize_resolution = (640, 640)
-    window_width = resize_resolution[0]
-    window_height = resize_resolution[1] * 2  # Double height for vertical stack
-    
-    # Get screen dimensions
-    root = tk.Tk()
-    screen_width = root.winfo_screenwidth()
-    screen_height = root.winfo_screenheight()
-    root.destroy()
-
-    # Calculate centered position
-    x_pos = (screen_width - window_width) // 2
-    y_pos = (screen_height - window_height) // 2
-
-    # Create and configure window
-    cv2.namedWindow("Wrist Views", cv2.WINDOW_NORMAL)
-    cv2.resizeWindow("Wrist Views", window_width, window_height)
-    cv2.moveWindow("Wrist Views", x_pos, y_pos)
 
     obs, info = env.reset()
     done = False
@@ -170,10 +149,6 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
     # training loop
     timer = Timer()
     running_return = 0.0
-    already_intervened = False
-    intervention_count = 0
-    intervention_steps = 0
-    total_intervention_steps = 0
     reward = -1.0
 
     pbar = tqdm.tqdm(range(start_step, config.max_steps), dynamic_ncols=True)
@@ -194,48 +169,15 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
 
         # Step environment
         with timer.context("step_env"):
-            wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
-            wrist2 = cv2.resize(wrist2, resize_resolution)
-            wrist1 = obs['wrist1'][0]
-            wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
-            wrist1 = cv2.resize(wrist1, resize_resolution)
-            # Combine images vertically
-            combined = np.vstack((wrist2, wrist1))
-
-            # Draw the reward in the top-left corner
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(
-                combined,
-                f"Reward: {reward:.2f}",
-                (10, 30),  # x,y
-                font,
-                1.0,       # font scale
-                (0, 0, 255),  # color (B,G,R) = red text
-                2,         # thickness
-                cv2.LINE_AA
-            )
-            cv2.imshow("Wrist Views", combined)
-            cv2.waitKey(waitkey)
-
             next_obs, reward, done, truncated, info = env.step(actions)
             if "left" in info:
                 info.pop("left")
             if "right" in info:
                 info.pop("right")
 
-            # override the action with the intervention action
-            if "intervene_action" in info:
-                actions = info.pop("intervene_action")
-                intervention_steps += 1
-                if not already_intervened:
-                    intervention_count += 1
-                already_intervened = True
-            else:
-                already_intervened = False
-
-            if info.get("succeed", False):
+            if reward == 1.0:
+                done = True
                 print("Success")
-
 
             running_return += reward
             transition = dict(
@@ -250,88 +192,26 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
                 transition['grasp_penalty']= info['grasp_penalty']
             data_store.insert(transition)
             transitions.append(copy.deepcopy(transition))
-            if already_intervened:
-                intvn_data_store.insert(transition)
-                demo_transitions.append(copy.deepcopy(transition))
 
             obs = next_obs
-            if done or truncated:
-                # Show reset screen
-                print("\nEpisode complete. Press Any key Reset")
-                wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
-                wrist2 = cv2.resize(wrist2, resize_resolution)
-                wrist1 = obs['wrist1'][0]
-                wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
-                wrist1 = cv2.resize(wrist1, resize_resolution)
-                combined = np.vstack((wrist2, wrist1))
-
-                cv2.putText(
-                    combined,
-                    f"Reward: {reward:.2f}",
-                    (10, 30),  # x,y
-                    font,
-                    1.0,       # font scale
-                    (0, 0, 255),  # color (B,G,R) = red text
-                    2,         # thickness
-                    cv2.LINE_AA
-                )
-                cv2.imshow("Wrist Views", combined)
-                cv2.waitKey(0)
-                info["episode"]["intervention_count"] = intervention_count
-                info["episode"]["intervention_steps"] = intervention_steps
+            if done or truncated:                
                 # Print stats for this episode
-                print(f"Episode ended. Steps intervened: {intervention_steps}")
-                total_intervention_steps += intervention_steps
-                print(f"Total steps intervened: {total_intervention_steps}")
                 stats = {"environment": info}  # send stats to the learner to log
                 client.request("send-stats", stats)
                 pbar.set_description(f"last return: {running_return}")
                 running_return = 0.0
-                intervention_count = 0
-                intervention_steps = 0
-                already_intervened = False
                 client.update()
-                reward = -1.0
+                reward = 0.0
                 obs, _ = env.reset()
-                print("\nPress Any key to begin new episode")
-                # Show reset screen
-                wrist2 = cv2.cvtColor(obs["wrist2"][0], cv2.COLOR_RGB2BGR)
-                wrist2 = cv2.resize(wrist2, resize_resolution)
-                wrist1 = obs['wrist1'][0]
-                wrist1 = cv2.cvtColor(wrist1, cv2.COLOR_RGB2BGR)
-                wrist1 = cv2.resize(wrist1, resize_resolution)
-                combined = np.vstack((wrist2, wrist1))
-
-                # Draw the confidence in the top-left corner
-                cv2.putText(
-                    combined,
-                    f"Reward: {reward:.2f}",
-                    (10, 30),  # x,y
-                    font,
-                    1.0,       # font scale
-                    (0, 0, 255),  # color (B,G,R) = red text
-                    2,         # thickness
-                    cv2.LINE_AA
-                )
-                cv2.imshow("Wrist Views", combined)
-                cv2.waitKey(0)
 
         if step > 0 and config.buffer_period > 0 and step % config.buffer_period == 0:
             # dump to pickle file
             buffer_path = os.path.join(FLAGS.checkpoint_path, "buffer")
-            demo_buffer_path = os.path.join(FLAGS.checkpoint_path, "demo_buffer")
             if not os.path.exists(buffer_path):
                 os.makedirs(buffer_path)
-            if not os.path.exists(demo_buffer_path):
-                os.makedirs(demo_buffer_path)
             with open(os.path.join(buffer_path, f"transitions_{step}.pkl"), "wb") as f:
                 pkl.dump(transitions, f)
                 transitions = []
-            with open(
-                os.path.join(demo_buffer_path, f"transitions_{step}.pkl"), "wb"
-            ) as f:
-                pkl.dump(demo_transitions, f)
-                demo_transitions = []
 
         timer.tock("total")
 
@@ -409,8 +289,8 @@ def compute_all_dormant_ratios(agent, batch, threshold=0.025):
     actions = batch["actions"]
 
     def actor_apply_fn(variables, inputs, mutable, train):
-        # Because `agent.forward_policy` normally does “apply_fn({'params':...}, obs)”
-        # we replicate that here. But we do the direct call to “agent.state.apply_fn”:
+        # Because `agent.forward_policy` normally does "apply_fn({'params':...}, obs)"
+        # we replicate that here. But we do the direct call to "agent.state.apply_fn":
         return agent.state.apply_fn(
             variables,
             next_observations,  # your input
@@ -526,7 +406,6 @@ def learner(rng, agent, replay_buffer, demo_buffer, wandb_logger=None):
     # Create server
     server = TrainerServer(make_trainer_config(), request_callback=stats_callback)
     server.register_data_store("actor_env", replay_buffer)
-    server.register_data_store("actor_env_intvn", demo_buffer)
     server.start(threaded=True)
 
     # Loop to wait until replay_buffer is filled
@@ -547,7 +426,7 @@ def learner(rng, agent, replay_buffer, demo_buffer, wandb_logger=None):
     server.publish_network(agent.state.params)
     print_green("sent initial network to actor")
 
-    # 50/50 sampling from RLPD, half from demo and half from online experience
+    # 50/50 sampling from the demo buffer and online experience buffer
     replay_iterator = replay_buffer.get_iterator(
         sample_args={
             "batch_size": config.batch_size // 2,
@@ -604,9 +483,9 @@ def learner(rng, agent, replay_buffer, demo_buffer, wandb_logger=None):
             agent = jax.block_until_ready(agent)
             server.publish_network(agent.state.params)
         
-        if step % config.steps_per_log_dormant == 0 and wandb_logger:
-                dormant_ratios = compute_all_dormant_ratios(agent, batch, threshold=0.025)
-                wandb_logger.log(dormant_ratios, step=step)
+        # if step % config.steps_per_log_dormant == 0 and wandb_logger:
+        #         dormant_ratios = compute_all_dormant_ratios(agent, batch, threshold=0.025)
+        #         wandb_logger.log(dormant_ratios, step=step)
 
         if step % config.log_period == 0 and wandb_logger:
             wandb_logger.log(update_info, step=step)
@@ -640,8 +519,8 @@ def main(_):
         save_video=FLAGS.save_video,
         video_res=480,
         state_res=128,
-        classifier=False,
-        xirl = False,
+        classifier=True,
+        xirl = True,
     )
     env = RecordEpisodeStatistics(env)
 
@@ -656,7 +535,7 @@ def main(_):
             encoder_type=config.encoder_type,
             discount=config.discount,
         )
-        include_grasp_penalty = True
+        include_grasp_penalty = False
     elif config.setup_mode == 'single-arm-learned-gripper':
         agent: SACAgentHybridSingleArm = make_sac_pixel_agent_hybrid_single_arm(
             seed=FLAGS.seed,
@@ -756,20 +635,6 @@ def main(_):
                 f"Loaded previous buffer data. Replay buffer size: {len(replay_buffer)}"
             )
 
-        if FLAGS.checkpoint_path is not None and os.path.exists(
-            os.path.join(FLAGS.checkpoint_path, "demo_buffer")
-        ):
-            for file in glob.glob(
-                os.path.join(FLAGS.checkpoint_path, "demo_buffer/*.pkl")
-            ):
-                with open(file, "rb") as f:
-                    transitions = pkl.load(f)
-                    for transition in transitions:
-                        demo_buffer.insert(transition)
-            print_green(
-                f"Loaded previous demo buffer data. Demo buffer size: {len(demo_buffer)}"
-            )
-
         # learner loop
         print_green("starting learner loop")
         learner(
@@ -783,14 +648,12 @@ def main(_):
     elif FLAGS.actor:
         sampling_rng = jax.device_put(sampling_rng, sharding.replicate())
         data_store = QueuedDataStore(50000)  # the queue size on the actor
-        intvn_data_store = QueuedDataStore(50000)
 
         # actor loop
         print_green("starting actor loop")
         actor(
             agent,
             data_store,
-            intvn_data_store,
             env,
             sampling_rng,
         )

@@ -53,8 +53,8 @@ def process_transitions(transitions, new_size=(128, 128)):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input_dir", default="./demo_data_sim", help="Path to input .pkl files.")
-    parser.add_argument("--output_dir", default="./demo_data_sim_128", help="Where to save resized .pkl files.")
+    parser.add_argument("--input_dir", default="./demo_data", help="Path to input .pkl files.")
+    parser.add_argument("--output_dir", default="./demo_data_128", help="Where to save resized .pkl files.")
     parser.add_argument("--width", type=int, default=128, help="Target width for resized images.")
     parser.add_argument("--height", type=int, default=128, help="Target height for resized images.")
     args = parser.parse_args()

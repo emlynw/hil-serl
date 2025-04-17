@@ -6,12 +6,13 @@ import pickle as pkl
 import cv2
 import numpy as np
 
-BUFFER_PATH = "/home/emlyn/rl_franka/hil-serl/examples/demo_data_sim_128"  # update accordingly
+BUFFER_PATH = "/home/emlyn/rl_franka/hil-serl/examples/demo_data_128"  # update accordingly
 
 def main():
     # Collect all .pkl files in BUFFER_PATH
     pkl_files = glob.glob(os.path.join(BUFFER_PATH, "*.pkl"))
     pkl_files.sort()  # optional sort if you want them in order
+    image_keys = ["robot0_eye_in_hand_image", "agentview_image"]
 
     success_count = 0
 
@@ -47,10 +48,10 @@ def main():
             # bottom-left  = obs['wrist1'][0]
             # top-right = next_obs['wrist2']  [0]
             # bottom-right = next_obs['wrist1'][0]
-            obs_wrist2 = obs["wrist2"][0]  # shape (256,256,3) in RGB
-            obs_wrist1 = obs["wrist1"][0]
-            nxt_wrist2 = next_obs["wrist2"][0]
-            nxt_wrist1 = next_obs["wrist1"][0]
+            obs_wrist2 = obs[image_keys[0]][0]  # shape (256,256,3) in RGB
+            obs_wrist1 = obs[image_keys[1]][0]
+            nxt_wrist2 = next_obs[image_keys[0]][0]
+            nxt_wrist1 = next_obs[image_keys[1]][0]
 
             # Convert from RGB -> BGR for OpenCV
             obs_wrist2_bgr = cv2.cvtColor(obs_wrist2, cv2.COLOR_RGB2BGR)
