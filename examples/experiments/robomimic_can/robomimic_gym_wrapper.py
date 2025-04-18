@@ -100,6 +100,11 @@ class RobomimicGymWrapper(EnvWrapper, gym.Env):
         obs_dict, reward, done, info = self.env.step(np.asarray(action, dtype=np.float32))
         obs = self._flatten_obs(obs_dict) if self.flatten_obs else self._filter_obs(obs_dict)
         terminated, truncated = bool(done), False   # robomimic has single done flag
+        if reward == 1.0:
+            terminated = True
+            info['success'] = True
+        else:
+            info['success'] = False
         return obs, float(reward), terminated, truncated, info
 
     # optional convenience

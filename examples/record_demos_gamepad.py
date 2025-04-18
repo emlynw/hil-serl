@@ -39,7 +39,7 @@ flags.DEFINE_integer("successes_needed", 6,   "Successful demos to collect")
 flags.DEFINE_list   ("camera_keys", ["robot0_eye_in_hand_image", "agentview_image"],
                      "Comma‑separated camera obs keys to display / record")
 flags.DEFINE_string("save_dir", "./demo_fails", "Directory to save demos")
-flags.DEFINE_bool("save_fails", True, "Save failed episodes as well")
+flags.DEFINE_bool("save_fails", False, "Save failed episodes as well")
 
 reset_key = False
 def on_press(key):
@@ -117,7 +117,7 @@ def main(_):
         returns += rew
         if "intervene_action" in info:
             actions = info["intervene_action"]
-        if rew == 1.0:
+        if info['success']:
             episode_success = True
             done = True
 
