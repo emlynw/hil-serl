@@ -41,7 +41,7 @@ class TrainConfig(DefaultTrainingConfig):
         self,
         fake_env=False,
         save_video=True,
-        video_dir="",
+        video_dir="./videos/",
         video_res=480,
         state_res=128,
         obs_horizon=1,
